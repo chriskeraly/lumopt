@@ -52,20 +52,20 @@ class ModeMatch(fom):
         '''Extracts the desired mode from the base simulation'''
 
         # TODO: deal with other mode propagation directions (should be ok but to be verified)
-        handle = sim.solver_handle
+        fdtd=sim.fdtd
 
         modesource_name = monitor_name + '_mode_extract'
-        lumapi.evalScript(handle, 'addmode; set("name","{}");'.format(modesource_name))
+        fdtd.eval('addmode; set("name","{}");'.format(modesource_name))
 
 
-        ls.copy_properties(handle,monitor_name,modesource_name,['x', 'y', 'z', 'x span', 'y span', 'z span'])
-        lumapi.evalScript(handle,"set('wavelength start',{});set('wavelength stop',{});".format(self.wavelengths[0],self.wavelengths[0]))
+        ls.copy_properties(fdtd,monitor_name,modesource_name,['x', 'y', 'z', 'x span', 'y span', 'z span'])
+        fdtd.eval("set('wavelength start',{});set('wavelength stop',{});".format(self.wavelengths[0],self.wavelengths[0]))
 
-        lumapi.evalScript(handle,"set('direction','{}');".format(self.direction))
-        lumapi.evalScript(handle, "save('modeextract');")
-        lumapi.evalScript(handle, 'updatesourcemode({});'.format(self.modeorder))
+        fdtd.eval("set('direction','{}');".format(self.direction))
+        fdtd.eval("save('modeextract');")
+        fdtd.eval('updatesourcemode({});'.format(self.modeorder))
 
-        mode_fields = ls.get_fields_modesource(handle, modesource_name, get_H=True,direction=self.direction)
+        mode_fields = ls.get_fields_modesource(fdtd, modesource_name, get_H=True,direction=self.direction)
         mode_fields.normalize_power(plot=plot)
         self.mode = mode_fields
 
@@ -78,14 +78,14 @@ class ModeMatch(fom):
                "set('wavelength center',{});".format(self.monitor_name,self.wavelengths[0])
 
 
-        lumapi.evalScript(simulation.solver_handle,script)
+        simulation.fdtd.eval(script)
 
     def get_fom(self, simulation):
         '''Uploads the fields from a completed forward simulation, and performs the mode overlap integral on them'''
-        fields = ls.get_fields(simulation.solver_handle, self.monitor_name, get_H=True)
+        fields = ls.get_fields(simulation.fdtd, self.monitor_name, get_H=True)
         source_power = np.zeros(np.shape(fields.wl))
         for i, wl in enumerate(fields.wl):
-            source_power[i] = ls.get_source_power(simulation.solver_handle, wl=wl)
+            source_power[i] = ls.get_source_power(simulation.fdtd, wl=wl)
 
         self.fields = fields
         self.source_power=source_power
@@ -114,7 +114,7 @@ class ModeMatch(fom):
         else:
             raise ValueError('Direction must be Forward or Backward')
 
-        ls.add_imported_source(sim.solver_handle,adjoint_injection_mode,fommonitorname=self.monitor_name,wavelengths=self.wavelengths,direction=adjoint_injection_direction)
+        ls.add_imported_source(sim.fdtd,adjoint_injection_mode,fommonitorname=self.monitor_name,wavelengths=self.wavelengths,direction=adjoint_injection_direction)
 
         return
 

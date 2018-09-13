@@ -19,17 +19,17 @@ class ContinousEpsilon2D(Geometry):
         self.addmesh=addmesh
 
     def add_geo(self,sim,params=None):
-        handle=sim.solver_handle
+        fdtd=sim.fdtd
 
         if params is None:
             eps=self.eps
         else:
             eps=np.reshape(params ,(len(self.x),len(self.y)))
 
-        lumapi.putMatrix(handle,'eps_geo',eps)
-        lumapi.putMatrix(handle,'x_geo',self.x)
-        lumapi.putMatrix(handle,'y_geo',self.y)
-        lumapi.putMatrix(handle,'z_geo',[self.z-self.depth/2,self.z+self.depth/2])
+        fdtd.putv('eps_geo',eps)
+        fdtd.putv('x_geo',self.x)
+        fdtd.putv('y_geo',self.y)
+        fdtd.putv('z_geo',[self.z-self.depth/2,self.z+self.depth/2])
 
         script='addimport;' \
                'temp=zeros(length(x_geo),length(y_geo),2);' \
@@ -46,8 +46,8 @@ class ContinousEpsilon2D(Geometry):
                         'set("y max",{});' \
                         'set("dx",{});' \
                         'set("dy",{});'.format(np.amin(self.x),np.amax(self.x),np.amin(self.y),np.amax(self.y),self.x[1]-self.x[0],self.y[1]-self.y[0])
-            lumapi.evalScript(handle,mesh_script)
-        lumapi.evalScript(handle, script)
+            fdtd.eval(mesh_script)
+        fdtd.eval(script)
 
     def calculate_gradients(self, gradient_fields, wavelength,real=True):
 
@@ -126,17 +126,17 @@ class FunctionDefinedContinuousEpsilon2D(ContinousEpsilon2D):
         ax.pcolormesh(self.x,self.y,np.real(self.eps.transpose()))
 
     def add_geo(self,sim,params=None):
-        handle=sim.solver_handle
+        fdtd=sim.fdtd
 
         if params is None:
             eps=self.eps
         else:
             eps=self.func(self.current_params)[0]
 
-        lumapi.putMatrix(handle,'eps_geo',eps)
-        lumapi.putMatrix(handle,'x_geo',self.x)
-        lumapi.putMatrix(handle,'y_geo',self.y)
-        lumapi.putMatrix(handle,'z_geo',[self.z-self.depth/2,self.z+self.depth/2])
+        fdtd.putv('eps_geo',eps)
+        fdtd.putv('x_geo',self.x)
+        fdtd.putv('y_geo',self.y)
+        fdtd.putv('z_geo',[self.z-self.depth/2,self.z+self.depth/2])
 
         script='addimport;' \
                'temp=zeros(length(x_geo),length(y_geo),2);' \
@@ -153,8 +153,8 @@ class FunctionDefinedContinuousEpsilon2D(ContinousEpsilon2D):
                         'set("y max",{});' \
                         'set("dx",{});' \
                         'set("dy",{});'.format(np.amin(self.x),np.amax(self.x),np.amin(self.y),np.amax(self.y),self.x[1]-self.x[0],self.y[1]-self.y[0])
-            lumapi.evalScript(handle,mesh_script)
-        lumapi.evalScript(handle, script)
+            fdtd.eval(mesh_script)
+        fdtd.eval(script)
 
 
 class FunctionDefinedContinuousEpsilon3DYeeGrid(Geometry):
@@ -231,17 +231,17 @@ class FunctionDefinedContinuousEpsilon3DYeeGrid(Geometry):
         #ax.pcolormesh(self.x,self.y,np.real(self.eps.transpose()))
 
     def add_geo(self,sim,params=None):
-        handle=sim.solver_handle
+        fdtd=sim.fdtd
 
         if params is None:
             eps=self.eps
         else:
             eps=eps=self.func(self.current_params)[0]
 
-        lumapi.putMatrix(handle,'eps_geo',eps)
-        lumapi.putMatrix(handle,'x_geo',self.x)
-        lumapi.putMatrix(handle,'y_geo',self.y)
-        lumapi.putMatrix(handle,'z_geo',self.z)
+        fdtd.putv('eps_geo',eps)
+        fdtd.putv('x_geo',self.x)
+        fdtd.putv('y_geo',self.y)
+        fdtd.putv('z_geo',self.z)
 
         script='addimport;' \
                'importnk2(sqrt(eps_geo),x_geo,y_geo,z_geo);' \
@@ -282,8 +282,8 @@ class FunctionDefinedContinuousEpsilon3DYeeGrid(Geometry):
                                                  np.amin(self.y), np.amax(self.y),
                                                  np.amin(self.z), np.amax(self.z))
 
-            lumapi.evalScript(handle,mesh_script+monitor_script+index_script)
-        lumapi.evalScript(handle, script)
+            fdtd.eval(mesh_script+monitor_script+index_script)
+        fdtd.eval(script)
 
 
 
@@ -356,17 +356,17 @@ class FunctionDefinedContinuousEpsilon3DYeeGrid_withoffset(Geometry):
         #ax.pcolormesh(self.x,self.y,np.real(self.eps.transpose()))
 
     def add_geo(self,sim,params=None):
-        handle=sim.solver_handle
+        fdtd=sim.fdtd
 
         if params is None:
             eps=self.eps
         else:
             eps=self.func(self.current_params)[0]
         eps_Yee=self.get_eps_on_Yee_grid(eps)
-        lumapi.putMatrix(handle,'eps_geo',eps_Yee)
-        lumapi.putMatrix(handle,'x_geo',self.x)
-        lumapi.putMatrix(handle,'y_geo',self.y)
-        lumapi.putMatrix(handle,'z_geo',self.z)
+        fdtd.putv('eps_geo',eps_Yee)
+        fdtd.putv('x_geo',self.x)
+        fdtd.putv('y_geo',self.y)
+        fdtd.putv('z_geo',self.z)
 
         script='addimport;' \
                'importnk2(sqrt(eps_geo),x_geo,y_geo,z_geo);' \
@@ -408,8 +408,8 @@ class FunctionDefinedContinuousEpsilon3DYeeGrid_withoffset(Geometry):
                                                  np.amin(self.y), np.amax(self.y),
                                                  np.amin(self.z), np.amax(self.z))
 
-            lumapi.evalScript(handle,mesh_script+monitor_script+index_script)
-        lumapi.evalScript(handle, script)
+            fdtd.eval(mesh_script+monitor_script+index_script)
+        fdtd.eval(script)
 
 
 class FunctionDefinedContinuousEpsilon3DYeeGrid_withoffset2(Geometry):
@@ -481,17 +481,17 @@ class FunctionDefinedContinuousEpsilon3DYeeGrid_withoffset2(Geometry):
         #ax.pcolormesh(self.x,self.y,np.real(self.eps.transpose()))
 
     def add_geo(self,sim,params=None):
-        handle=sim.solver_handle
+        fdtd=sim.fdtd
 
         if params is None:
             eps=self.eps
         else:
             eps=self.func(self.current_params)[0]
         eps_Yee=self.eps
-        lumapi.putMatrix(handle,'eps_geo',eps_Yee)
-        lumapi.putMatrix(handle,'x_geo',self.x)
-        lumapi.putMatrix(handle,'y_geo',self.y)
-        lumapi.putMatrix(handle,'z_geo',self.z)
+        fdtd.putv('eps_geo',eps_Yee)
+        fdtd.putv('x_geo',self.x)
+        fdtd.putv('y_geo',self.y)
+        fdtd.putv('z_geo',self.z)
 
         script='addimport;' \
                'importnk2(sqrt(eps_geo),x_geo,y_geo,z_geo);' \
@@ -533,8 +533,8 @@ class FunctionDefinedContinuousEpsilon3DYeeGrid_withoffset2(Geometry):
                                                  np.amin(self.y), np.amax(self.y),
                                                  np.amin(self.z), np.amax(self.z))
 
-            lumapi.evalScript(handle,mesh_script+monitor_script+index_script)
-        lumapi.evalScript(handle, script)
+            fdtd.eval(mesh_script+monitor_script+index_script)
+        fdtd.eval(script)
 
 
 

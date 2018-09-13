@@ -36,7 +36,7 @@ class FieldIntensity(fom):
 
         return fom
 
-    def add_adjoint_sources(self, simulation):
+    def add_adjoint_sources(self, sim):
         '''
         Adds the adjoint sources required in the adjoint simulation
 
@@ -49,10 +49,10 @@ class FieldIntensity(fom):
         # print prefactor
         adjoint_source = np.conj(pointfield)
 
-        ls.add_dipole(simulation.solver_handle, field.x[0], field.y[0], field.z[0], self.wavelengths[0], adjoint_source)
+        ls.add_dipole(sim.fdtd, field.x[0], field.y[0], field.z[0], self.wavelengths[0], adjoint_source)
         if self.long_source:
             script='set("optimize for short pulse", 0);'
-            lumapi.evalScript(simulation.solver_handle,script)
+            sim.fdtd.eval(script)
 
 
 class FieldIntensities(fom):
@@ -90,7 +90,7 @@ class FieldIntensities(fom):
         script=''
         for monitor_name,position in zip(self.monitor_names,self.positions):
             script+=ls.add_point_monitor_script(monitor_name,position)
-        ls.lumapi.evalScript(simulation.solver_handle,script)
+        sim.fdtd.eval(script)
 
         
     def get_fom(self,simulation):
@@ -115,7 +115,7 @@ class FieldIntensities(fom):
         return fom
 
 
-    def add_adjoint_sources(self, simulation):
+    def add_adjoint_sources(self, sim):
 
         fields=self.fields
         pointfields=[field.getfield(field.x[0],field.y[0],field.z[0],self.wavelengths[0]) for field in fields]
@@ -135,8 +135,8 @@ class FieldIntensities(fom):
             adjoint_sources=adjoint_sources/self.source_power
         script=''
         for i,(adjoint_source,field) in enumerate(zip(adjoint_sources,fields)):
-            script+=ls.add_dipole_script(simulation.solver_handle,field.x[0],field.y[0],field.z[0],self.wavelengths[0],adjoint_source,name_suffix=str(i))
-        ls.lumapi.evalScript(simulation.solver_handle,script)
+            script+=ls.add_dipole_script(field.x[0],field.y[0],field.z[0],self.wavelengths[0],adjoint_source,name_suffix=str(i))
+        sim.fdtd.eval(script)
         return
 
 if __name__=='__main__':

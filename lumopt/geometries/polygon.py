@@ -118,12 +118,14 @@ class Polygon(Geometry):
 
     def add_geo(self, sim, params=None):
         ''' Adds the geometry to a Lumerical simulation'''
-        handle = sim.solver_handle
+
+        fdtd = sim.fdtd
+
         if params is None:
             points = self.points
         else:
             points = np.reshape(params, (-1, 2))
-        lumapi.putMatrix(handle, 'vertices', points)
+        fdtd.putv('vertices', points)
 
         script = "addpoly;" \
                  "set('name','polygon_{0}');" \
@@ -133,15 +135,14 @@ class Polygon(Geometry):
                  "set('z span',{2});" \
                  "set('vertices',vertices);" \
                  "{3}".format(self.hash, self.z, self.depth, self.eps_in.set_script())
-        lumapi.evalScript(handle, script)
+        fdtd.eval(script)
 
     def update_geo_in_sim(self,sim,params):
-        handle = sim.solver_handle
         points = np.reshape(params, (-1, 2))
-        lumapi.putMatrix(sim.solver_handle, 'vertices', points)
+        sim.fdtd.putv('vertices', points)
         script = "select('polygon_{0}');" \
                  "set('vertices',vertices);".format(self.hash)
-        lumapi.evalScript(handle, script)
+        sim.fdtd.eval(script)
 
     def plot(self,ax):
         points=self.points.copy()
@@ -270,36 +271,19 @@ class function_defined_Polygon(Polygon):
 
     def add_geo(self, sim, params=None,eval=True,only_update=False):
         ''' Adds the geometry to a Lumerical simulation'''
-        handle = sim.solver_handle
+        fdtd = sim.fdtd
         if params is None:
             points = self.points
         else:
             points = self.func(params)
 
         script=self.add_poly_script(points,only_update)
-        # lumapi.putMatrix(handle, 'vertices', points)
-        #
-        # script = "addpoly;" \
-        #          "set('name','polygon_{0}');" \
-        #          "set('z',{1});" \
-        #          "set('x',0);" \
-        #          "set('y',0);" \
-        #          "set('z span',{2});" \
-        #          "set('vertices',vertices);" \
-        #          "{3}".format(self.hash, self.z, self.depth, self.eps_in.set_script())
         if eval:
-            lumapi.evalScript(handle, script)
+            fdtd.eval(script)
         return script
 
     def update_geo_in_sim(self, sim, params, eval=False):
         return self.add_geo(sim,params,eval,only_update=True)
-
-        # handle = sim.solver_handle
-        # points = self.func(params)
-        # lumapi.putMatrix(sim.solver_handle, 'vertices', points)
-        # script = "select('polygon_{0}');" \
-        #          "set('vertices',vertices);".format(self.hash)
-        # lumapi.evalScript(handle, script)
 
 def cross(params):
     '''Example of a function for a cross defined by a spline'''
