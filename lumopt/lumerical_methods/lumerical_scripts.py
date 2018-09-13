@@ -72,25 +72,21 @@ def get_fields_no_interp(fdtd, monitor_name, get_eps=False, get_D=False, get_H=F
     #
     # fields_lambda=c/fields_f
     #
-    # if get_eps:
-    #     script="index_x=getdata('{0}','index_x');" \
-    #            "index_y=getdata('{0}','index_y');" \
-    #            "index_z=getdata('{0}','index_z');" \
-    #            "eps_x=index_x^2;" \
-    #            "eps_y=index_y^2;" \
-    #            "eps_z=index_z^2;".format(monitor_name+ '_index')
-    #     lumapi.evalScript(handle,script)
-    #     fields_eps_x = lumapi.getVar(handle, "eps_x")
-    #     fields_eps_y = lumapi.getVar(handle, "eps_y")
-    #     fields_eps_z = lumapi.getVar(handle, "eps_z")
-    #     fields_eps=np.stack((fields_eps_x,fields_eps_y,fields_eps_z),axis=-1)
-    # else:
-    #     fields_eps = None
-    # if get_D:
-    #     fields_D=fields_E*fields_eps*eps0
-    #
-    # else:
-    #     fields_D = None
+    if get_eps:
+        script="index_x=getdata('{0}','index_x');" \
+               "index_y=getdata('{0}','index_y');" \
+               "index_z=getdata('{0}','index_z');" \
+               "eps_x=index_x^2;" \
+               "eps_y=index_y^2;" \
+               "eps_z=index_z^2;".format(monitor_name+ '_index')
+        fdtd.eval(script)
+        fields_eps_x = fdtd.getv("eps_x")
+        fields_eps_y = fdtd.getv("eps_y")
+        fields_eps_z = fdtd.getv("eps_z")
+        fields_eps=np.stack((fields_eps_x,fields_eps_y,fields_eps_z),axis=-1)
+    else:
+        fields_eps = None
+
     # if get_H:
     #     script = "fields=getresult('{}','H');".format(monitor_name)
     #     lumapi.evalScript(handle, script)
@@ -104,19 +100,14 @@ def get_fields_no_interp(fdtd, monitor_name, get_eps=False, get_D=False, get_H=F
     delta_y=fdtd.getresult(monitor_name,'delta_y')
     delta_z = np.array(0) if fdtd.getresult(monitor_name,'dimension')==2. else fdtd.getresult(monitor_name,'delta_z')
     deltas = [delta_x, delta_y, delta_z]
-    fields_eps = fdtd.getresult(monitor_name + '_index','eps')['eps'] if get_eps else None
-    #fields_D = fdtd.getresult(monitor_name + '_index','D')['D'] if get_D else None
     if get_D:
-        fields_D=fields['E']*fields_eps*eps0
-
+        fields_D = fields['E']*fields_eps*eps0
     else:
         fields_D = None
     fields_H = fdtd.getresult(monitor_name,'H')['H'] if get_H else None
 
 
     return FieldsNoInterp(fields['x'], fields['y'], fields['z'], fields['lambda'], deltas,fields['E'] ,fields_D, fields_eps, fields_H)
-
-
 
 def get_fields_interp(fdtd, monitor_name, get_eps=False, get_D=False, get_H=False):
     '''This function fetches fields from a monitor.
