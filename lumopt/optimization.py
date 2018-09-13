@@ -323,8 +323,12 @@ class Optimization(Super_Optimization):
 
     from copy import deepcopy
 
-    def calculate_finite_differences_gradients_2(self, n_derivatives=range(4, 6), dx=0.01e-9, central=False, print_res=True,
+    def calculate_finite_differences_gradients_advanced(self, n_derivatives=range(4, 6), dx=0.01e-9, central=False, print_res=True,
                                                  superverbose=False):
+
+        '''Calculates the finite difference gradients, and also compares the derivative to the gradients calculated using the adjoint
+        derivatives, as well as recalculated derivatives using the actual permittivity change seen in the simulation and extracted from the
+        index monitors'''
 
         finite_differences_gradients = []
         recalculated_adjoint_derivs = []
@@ -360,23 +364,7 @@ class Optimization(Super_Optimization):
                 recalculated_adjoint_derivs.append(recalculated_adjoint_deriv)
             else:
                 print 'central not supported on this on yet'
-                # # d_geo_pos=copy.deepcopy(self.geometry)
-                # # d_geo_neg=copy.deepcopy(self.geometry)
-                # d_params_pos = params.copy()
-                # d_params_neg = params.copy()
-                # d_params_pos[i] = param + dx
-                # d_params_neg[i] = param - dx
-                # # d_geo_pos.update_geometry(d_params_pos)
-                # # d_geo_neg.update_geometry(d_params_neg)
-                # print('getting + '),
-                # d_fom_pos = self.callable_fom(d_params_pos)
-                # if superverbose: print('dfom + ={}'.format(d_fom_pos))
-                # print('getting - '),
-                # d_fom_neg = self.callable_fom(d_params_neg)
-                # if superverbose: print('dfom + ={}'.format(d_fom_neg))
-                # deriv = (d_fom_pos - d_fom_neg)/dx/2.
-                # finite_differences_gradients.append(deriv)
-                # # if superverbose: print('Current parameters={}'.format(self.geometry.get_current_params()))
+
             if print_res: print('Derivative n {}={}'.format(i, deriv))
         self.geometry.update_geometry(params)
 
@@ -400,7 +388,7 @@ class Optimization(Super_Optimization):
             finite_differences_gradients = self.geometry.calculate_finite_differences_gradients()
         else:
             finite_differences_gradients = []
-            try:
+            try: #If the geometry knows how to get it's own finite differences
                 finite_differences_geometries = self.geometry.get_geometries_for_finite_differences_gradients(dx=dx)
                 current_fom = self.get_fom_geo(self.geometry)
                 for i, geometry in enumerate(finite_differences_geometries[:n_derivatives]):
@@ -451,8 +439,6 @@ class Optimization(Super_Optimization):
 
         return finite_differences_gradients
 
-    def create_gradient_fields(self):
-        self.gradient_fields = Gradient_fields(forward_fields=self.forward_fields, adjoint_fields=self.adjoint_fields)
 
     def calculate_gradients(self,real=True):
         '''Uses the forward and adjoint fields to calculate the derivatives to the optimization parameters
@@ -461,7 +447,7 @@ class Optimization(Super_Optimization):
             print 'Calculating Gradients'
 
         # Create the gradient fields
-        self.create_gradient_fields()
+        self.gradient_fields = Gradient_fields(forward_fields=self.forward_fields, adjoint_fields=self.adjoint_fields)
 
         'Let the geometry calculate the actual gradients'
         if not self.use_deps:
