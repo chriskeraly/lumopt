@@ -52,7 +52,7 @@ geometry = function_defined_Polygon(func=taper_splitter, initial_params=inital_p
 
 ######## DEFINE FIGURE OF MERIT ########
 
-fom = ModeMatch(modeorder=3,precision=100,monitor_name='fom',wavelength=1550e-9)
+fom = ModeMatch(modeorder=3,monitor_name='fom',wavelength=1550e-9)
 # The base simulation script defines a field monitor named 'fom' at the point where we want to
 # modematch to the 3rd order mode (fundamental TE mode)
 

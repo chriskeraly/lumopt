@@ -102,6 +102,11 @@ class Optimization(Super_Optimization):
         :param optimizer:
             An instance of an optimizer class, it will decide from the figures of merits and the Jacobians calculated how to
             update the shape parameters
+        :param Plotter:
+            Plotter object. Is set by default and shouldn't need tweaking.
+        :param use_deps:
+            In development. This will implement a discrete adjoint in space, by directly extracting the permittivity derivatives
+            from Lumerical. There are changes that need to be implemented within Lumerical for this to work.
 
         '''
 

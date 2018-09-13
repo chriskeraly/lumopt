@@ -55,13 +55,13 @@ geometry_2 =  function_defined_Polygon(func=taper_splitter_2,initial_params=np.l
 ######## DEFINE FIGURE OF MERIT ########
 # Although we are optimizing for the same thing, two separate fom objects must be create
 
-fom_1=ModeMatch(precision=100,modeorder=3)
-fom_2=ModeMatch(precision=100,modeorder=3)
+fom_1=ModeMatch(modeorder=3)
+fom_2=ModeMatch(modeorder=3)
 
 ######## DEFINE OPTIMIZATION ALGORITHM ########
 #For the optimizer, they should all be set the same, but different objects. Eventually this will be improved
-optimizer_1=FixedStepGradientDescent(max_iter=40,max_dx=20e-9)
-optimizer_2=FixedStepGradientDescent(max_iter=40,max_dx=20e-9)
+optimizer_1=ScipyOptimizers(max_iter=40)
+optimizer_2=ScipyOptimizers(max_iter=40)
 
 ######## PUT EVERYTHING TOGETHER ########
 opt_1=Optimization(base_script=script_1,fom=fom_1,geometry=geometry_1,optimizer=optimizer_1)

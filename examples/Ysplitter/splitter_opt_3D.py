@@ -14,7 +14,7 @@ from lumopt.optimizers.generic_optimizers import ScipyOptimizers
 
 ######## DEFINE BASE SIMULATION ########
 
-script = load_from_lsf(os.path.join(CONFIG['root'], 'examples/Ysplitter/splitter_base_TE_modematch_3D_fine.lsf'))
+script = load_from_lsf(os.path.join(CONFIG['root'], 'examples/Ysplitter/splitter_base_TE_modematch_3D.lsf'))
 
 ######## DEFINE OPTIMIZABLE GEOMETRY ########
 
@@ -53,7 +53,7 @@ geometry = function_defined_Polygon(func=taper_splitter, initial_params=initial_
 
 ######## DEFINE FIGURE OF MERIT ########
 
-fom = ModeMatch(modeorder=1,precision=20,monitor_name='fom',wavelength=1550e-9)
+fom = ModeMatch(modeorder=1,monitor_name='fom',wavelength=1550e-9)
 # The base simulation script defines a field monitor named 'fom' at the point where we want to
 # modematch to the 3rd order mode (fundamental TE mode)
 
