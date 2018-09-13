@@ -29,7 +29,7 @@ class ContinousEpsilon2D(Geometry):
         fdtd.putv('eps_geo',eps)
         fdtd.putv('x_geo',self.x)
         fdtd.putv('y_geo',self.y)
-        fdtd.putv('z_geo',[self.z-self.depth/2,self.z+self.depth/2])
+        fdtd.putv('z_geo',np.array([self.z-self.depth/2,self.z+self.depth/2]))
 
         script='addimport;' \
                'temp=zeros(length(x_geo),length(y_geo),2);' \
