@@ -6,7 +6,7 @@ This is a continuous adjoint opimtization wrapper for Lumerical, using Python as
 
 ## Tutorials, examples, and Documentation
 
-It is all here: https://readthedocs.org/projects/lumopt/
+It is all here: https://lumopt.readthedocs.io/en/latest/
 
 ## Install
 

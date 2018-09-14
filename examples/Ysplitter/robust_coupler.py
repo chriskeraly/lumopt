@@ -49,8 +49,12 @@ def taper_splitter_2(params,n_points=10):
     return polygon_points
 
 bounds = [(0.2e-6, 1e-6)]*10
-geometry_1 =  function_defined_Polygon(func=taper_splitter_1,initial_params=np.linspace(0.25e-6,0.6e-6,10),eps_out=1.44 ** 2, eps_in=2.8 ** 2,bounds=bounds,depth=220e-9,edge_precision=5)
-geometry_2 =  function_defined_Polygon(func=taper_splitter_2,initial_params=np.linspace(0.25e-6,0.6e-6,10),eps_out=1.44 ** 2, eps_in=2.8 ** 2,bounds=bounds,depth=220e-9,edge_precision=5)
+
+#final value from splitter_opt_2D.py optimization
+initial_params=np.array([2.44788514e-07, 2.65915795e-07, 2.68748023e-07, 4.42233947e-07, 6.61232152e-07, 6.47561406e-07, 6.91473099e-07, 6.17511522e-07, 6.70669074e-07, 5.86141086e-07])
+
+geometry_1 =  function_defined_Polygon(func=taper_splitter_1,initial_params=initial_params,eps_out=1.44 ** 2, eps_in=2.8 ** 2,bounds=bounds,depth=220e-9,edge_precision=5)
+geometry_2 =  function_defined_Polygon(func=taper_splitter_2,initial_params=initial_params,eps_out=1.44 ** 2, eps_in=2.8 ** 2,bounds=bounds,depth=220e-9,edge_precision=5)
 
 
 ######## DEFINE FIGURE OF MERIT ########
