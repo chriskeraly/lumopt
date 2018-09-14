@@ -4,6 +4,8 @@
 
 This is a continuous adjoint opimtization wrapper for Lumerical, using Python as the main user interface. It is released under an MIT license.
 
+If you use this tool in any published work, please cite https://www.osapublishing.org/oe/abstract.cfm?uri=oe-21-18-21693 and give a link to this repo. Thanks!
+
 ## Tutorials, Examples, and Documentation
 
 It is all here: https://lumopt.readthedocs.io/en/latest/
