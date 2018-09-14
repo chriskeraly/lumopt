@@ -34,30 +34,30 @@ class ModeMatch(fom):
         '''Extracts the desired mode from the base simulation'''
 
         # TODO: deal with other mode propagation directions (should be ok but to be verified)
-        handle = sim.solver_handle
+        fdtd=sim.fdtd
 
         modesource_name = monitor_name + '_mode_extract'
-        lumapi.evalScript(handle, 'addmode; set("name","{}");'.format(modesource_name))
+        fdtd.eval('addmode; set("name","{}");'.format(modesource_name))
 
 
-        ls.copy_properties(handle,monitor_name,modesource_name,['x', 'y', 'z', 'x span', 'y span', 'z span'])
-        lumapi.evalScript(handle,"set('wavelength start',{});set('wavelength stop',{});".format(self.wavelengths[0],self.wavelengths[0]))
+        ls.copy_properties(fdtd,monitor_name,modesource_name,['x', 'y', 'z', 'x span', 'y span', 'z span'])
+        fdtd.eval("set('wavelength start',{});set('wavelength stop',{});".format(self.wavelengths[0],self.wavelengths[0]))
 
-        lumapi.evalScript(handle,"set('direction','{}');".format(self.direction))
-        lumapi.evalScript(handle, "save('modeextract');")
-        lumapi.evalScript(handle, 'updatesourcemode({});'.format(self.modeorder))
+        fdtd.eval("set('direction','{}');".format(self.direction))
+        fdtd.eval( "save('modeextract');")
+        fdtd.eval( 'updatesourcemode({});'.format(self.modeorder))
 
-        mode_fields = ls.get_fields_modesource(handle, modesource_name, get_H=True,direction=self.direction)
+        mode_fields = ls.get_fields_modesource(fdtd, modesource_name, get_H=True,direction=self.direction)
         mode_fields.normalize_power(plot=plot)
         self.mode = mode_fields
 
 
     def get_fom(self, simulation):
 
-        fields = ls.get_fields(simulation.solver_handle, self.monitor_name, get_H=True)
+        fields = ls.get_fields(simulation.fdtd, self.monitor_name, get_H=True)
         source_power = np.zeros(np.shape(fields.wl))
         for i, wl in enumerate(fields.wl):
-            source_power[i] = ls.get_source_power(simulation.solver_handle, wl=wl)
+            source_power[i] = ls.get_source_power(simulation.fdtd, wl=wl)
 
         self.fields = fields
         self.source_power=source_power
@@ -125,16 +125,16 @@ class ModeMatch(fom):
                     my_dip.append(np.conj(Em[2])*np.conj(pp)/mu0*dy*dx*dz)
                     mz_dip.append(-np.conj(Em[1])*np.conj(pp)/mu0*dy*dx*dz)
 
-                    script += ls.add_dipole_script(simulation.solver_handle, x, y, z, self.wavelength,
+                    script += ls.add_dipole_script(x, y, z, self.wavelength,
                                                    [px_dip[i], py_dip[i], pz_dip[i]],
                                                    name_suffix='electric_{}_'.format(i))
-                    script += ls.add_dipole_script(simulation.solver_handle, x, y, z, self.wavelength,
+                    script += ls.add_dipole_script(x, y, z, self.wavelength,
                                                    [mx_dip[i], my_dip[i], mz_dip[i]], magnetic=True,
                                                    name_suffix='magnetic_{}_'.format(i))
                     i+=1
 
 
-        lumapi.evalScript(simulation.solver_handle,script)
+        simulation.fdtd.eval(script)
 
         return
 
@@ -159,7 +159,7 @@ class Modematch_field_source(ModeMatch):
 
           # TODO: This does not deal with multiple wavelengths
 
-        ls.add_imported_source(simulation.solver_handle,adjoint_injection_mode,prefactor=1,fommonitorname=self.monitor_name,wavelengths=self.wavelengths)
+        ls.add_imported_source(simulation.fdtd,adjoint_injection_mode,fommonitorname=self.monitor_name,wavelengths=self.wavelengths)
 
         return
 
@@ -184,20 +184,20 @@ class ModeMatch2(fom):
         '''Extracts the desired mode from the base simulation'''
 
         # TODO: deal with other mode propagation directions (should be ok but to be verified)
-        handle = sim.solver_handle
+        fdtd=sim.fdtd
 
         modesource_name = monitor_name + '_mode_extract'
-        lumapi.evalScript(handle, 'addmode; set("name","{}");'.format(modesource_name))
+        fdtd.eval( 'addmode; set("name","{}");'.format(modesource_name))
 
 
-        ls.copy_properties(handle,monitor_name,modesource_name,['x', 'y', 'z', 'x span', 'y span', 'z span'])
-        lumapi.evalScript(handle,"set('wavelength start',{});set('wavelength stop',{});".format(self.wavelengths[0],self.wavelengths[0]))
+        ls.copy_properties(fdtd,monitor_name,modesource_name,['x', 'y', 'z', 'x span', 'y span', 'z span'])
+        fdtd.eval("set('wavelength start',{});set('wavelength stop',{});".format(self.wavelengths[0],self.wavelengths[0]))
 
-        lumapi.evalScript(handle,"set('direction','{}');".format(self.direction))
-        lumapi.evalScript(handle, "save('modeextract');")
-        lumapi.evalScript(handle, 'updatesourcemode({});'.format(self.modeorder))
+        fdtd.eval("set('direction','{}');".format(self.direction))
+        fdtd.eval( "save('modeextract');")
+        fdtd.eval( 'updatesourcemode({});'.format(self.modeorder))
 
-        mode_fields = ls.get_fields_modesource(handle, modesource_name, get_H=True,direction=self.direction)
+        mode_fields = ls.get_fields_modesource(fdtd, modesource_name, get_H=True,direction=self.direction)
         mode_fields.normalize_power(plot=plot)
         self.mode = mode_fields
 
@@ -272,11 +272,11 @@ class ModeMatch3(ModeMatch2):
 
 
     def get_fom(self, simulation):
-        fields = ls.get_fields(simulation.solver_handle, self.monitor_name, get_H=True)
+        fields = ls.get_fields(simulation.fdtd, self.monitor_name, get_H=True)
         self.fields=fields
         source_power = np.zeros(np.shape(fields.wl))
         for i, wl in enumerate(fields.wl):
-            source_power[i] = ls.get_source_power(simulation.solver_handle, wl=wl)
+            source_power[i] = ls.get_source_power(simulation.fdtd, wl=wl)
         self.source_power=source_power
 
         pointfields=[fields.getfield(pos[0],pos[1],pos[2],self.wavelength) for pos in self.positions]
@@ -309,18 +309,18 @@ class ModeMatch3(ModeMatch2):
         adjoint_sources=adjoint_sources/self.source_power
         script=''
         for i,(adjoint_source,pos) in enumerate(zip(adjoint_sources,self.positions)):
-            script+=ls.add_dipole_script(simulation.solver_handle,pos[0],pos[1],pos[2],self.wavelength,adjoint_source,name_suffix=str(i))
-        ls.lumapi.evalScript(simulation.solver_handle,script)
+            script+=ls.add_dipole_script(pos[0],pos[1],pos[2],self.wavelength,adjoint_source,name_suffix=str(i))
+        simulation.fdtd.eval(script)
         return
 
 class Modematch_combined(ModeMatch3):
 
     def get_fom(self, simulation):
         '''Uploads the fields from a completed forward simulation, and performs the mode overlap integral on them'''
-        fields = ls.get_fields(simulation.solver_handle, self.monitor_name, get_H=True)
+        fields = ls.get_fields(simulation.fdtd, self.monitor_name, get_H=True)
         source_power = np.zeros(np.shape(fields.wl))
         for i, wl in enumerate(fields.wl):
-            source_power[i] = ls.get_source_power(simulation.solver_handle, wl=wl)
+            source_power[i] = ls.get_source_power(simulation.fdtd, wl=wl)
 
         self.fields = fields
         self.source_power=source_power
@@ -336,74 +336,4 @@ class Modematch_combined(ModeMatch3):
 
 
 if __name__ == '__main__':
-    # import matplotlib as mpl
-    #
-    #  #mpl.use('TkAgg')
-    # import matplotlib.pyplot as plt
-    # from examples.splitter01.make_sim import make_sim_modematch
-    #
-    # sim = make_sim_modematch()
-    # fom = ModeMatch2()
-    # fom.initialize(sim, modeorder=3)
-    # fom.mode.plot()
-    # plt.show(block=True)
-    # print 't'
-    # from time import sleep
-    #
-    # sleep(100)
-    import numpy as np
-    from lumopt.optimization import Base_Optimization
-    from lumopt.optimizers.generic_optimizers import ScipyOptimizers
-    from lumopt.utilities.load_lumerical_scripts import load_from_lsf
-    import os
-    from lumopt.geometries.polygon import function_defined_Polygon,taper_splitter
-    from lumopt.utilities.materials import Material
-    from lumopt import CONFIG
-
-    script = load_from_lsf(os.path.join(CONFIG['root'], 'examples/splitter01/splitter_base_TE_modematch.lsf'))
-
-    fom = ModeMatch3(modeorder=3,precision=50)
-    optimizer = ScipyOptimizers(max_iter=20)
-
-    bounds = [(0.2e-6, 1e-6)]*18
-    geometry = function_defined_Polygon(func=taper_splitter, initial_params=np.linspace(0.25e-6, 0.6e-6, 18),
-                                        eps_out=Material(1.44 ** 2), eps_in=Material(2.8 ** 2, 2), bounds=bounds, depth=220e-9,
-                                        edge_precision=5)
-
-
-    # geometry=Polygon(eps_in=2.8**2,eps_out=1.44**2)
-    opt = Base_Optimization(base_script=script, fom=fom, geometry=geometry, optimizer=optimizer)
-    opt.initialize()
-    opt.run_forward_solves()
-    opt.make_adjoint_solves()
-
-    fom = Modematch_field_source(modeorder=3)
-    optimizer = ScipyOptimizers(max_iter=20)
-
-    bounds = [(0.2e-6, 1e-6)]*18
-    geometry = function_defined_Polygon(func=taper_splitter, initial_params=np.linspace(0.25e-6, 0.6e-6, 18),
-                                        eps_out=Material(1.44 ** 2), eps_in=Material(2.8 ** 2, 2), bounds=bounds,
-                                        depth=220e-9,
-                                        edge_precision=5)
-
-    # geometry=Polygon(eps_in=2.8**2,eps_out=1.44**2)
-    opt = Base_Optimization(base_script=script, fom=fom, geometry=geometry, optimizer=optimizer)
-    opt.initialize()
-    opt.run_forward_solves()
-    opt.make_adjoint_solves()
-
-    from time import sleep
-    sleep(36000)
-    print 'hello'
-
-    #
-    # foms = []
-    # fom = opt.run_forward_solves()
-    # foms.append(fom)
-    # # calculate the gradient using the adjoint solve
-    # opt.run_adjoint_solves()
-    # calculated_gradients = np.array(opt.calculate_gradients())
-    # print calculated_gradients
-    # n_derivatives = 4
-    # finite_difference_gradients = opt.calculate_finite_differences_gradients(n_derivatives=n_derivatives, dx=5e-9,
-    #                                                                          central=True, print_res=True)
+    pass

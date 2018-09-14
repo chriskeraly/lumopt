@@ -28,7 +28,7 @@ class FieldIntensity(fom):
         :param simulation: The simulation object of the base simulation
         :return: The figure of merit
         '''
-        field = ls.get_fields(simulation.solver_handle, self.monitor_name)
+        field = ls.get_fields(simulation.fdtd, self.monitor_name)
         self.fields = field
 
         pointfield = field.getfield(field.x[0], field.y[0], field.z[0], self.wavelengths[0])
@@ -90,17 +90,17 @@ class FieldIntensities(fom):
         script=''
         for monitor_name,position in zip(self.monitor_names,self.positions):
             script+=ls.add_point_monitor_script(monitor_name,position)
-        sim.fdtd.eval(script)
+        simulation.fdtd.eval(script)
 
         
     def get_fom(self,simulation):
 
-        fields=[ls.get_fields(simulation.solver_handle, monitor_name) for monitor_name in self.monitor_names]
+        fields=[ls.get_fields(simulation.fdtd, monitor_name) for monitor_name in self.monitor_names]
 
         if self.normalize_to_source_power:
             source_power = np.zeros(np.shape(fields[0].wl))
             for i, wl in enumerate(fields[0].wl):
-                source_power[i] = ls.get_source_power(simulation.solver_handle, wl=wl)
+                source_power[i] = ls.get_source_power(simulation.fdtd, wl=wl)
             self.source_power = source_power
         self.fields=fields
 
@@ -140,50 +140,7 @@ class FieldIntensities(fom):
         return
 
 if __name__=='__main__':
-
-    import numpy as np
-    from lumopt.forward_problem import Forward_problem
-    from lumopt.optimization import Optimization
-    from lumopt.optimizers.generic_optimizers import FixedStepGradientDescent
-    from lumopt.geometries.polygon import Polygon, Polygon_constrained
-
-    from lumopt.utilities.load_lumerical_scripts import load_from_lsf
-    import os
-    import matplotlib.pyplot as plt
-    from lumopt import CONFIG
-
-    script = load_from_lsf(os.path.join(CONFIG['root'], 'examples/splitter01/splitter_base_TE_nomonitors_3D.lsf'))
-
-    forward_problem = Forward_problem(script=script)
-
-    fom = FieldIntensities([(1.25e-6, 0.36e-6, 0), (1.25e-6, -0.36e-6, 0)], weight_amplitudes=[1, 1j])
-    optimizer = FixedStepGradientDescent(dx=5e-9, max_iter=25)
-
-    points_up = zip(np.linspace(-1, 1, 20)*1e-6, np.linspace(0.25, 0.6, 20)*1e-6)
-    points_down = zip(np.linspace(-1, 1, 20)*1e-6, np.linspace(-0.25, -0.6, 20)*1e-6)
-    points = np.array(points_up[::-1] + points_down)
-
-    linear_points = np.reshape(points, (-1))
-    mask = [1 if i%2 == 1 else 0 for i, elem in enumerate(linear_points)]  # this should blockoff all x coordinates
-    mask[1] = 0  # first corner
-    mask[19*2 + 1] = 0
-    mask[20*2 + 1] = 0
-    mask[-1] = 0
-    bounds = [(0, 1e-6)]*18 + [(-1e-6, 0)]*18
-
-    geometry = Polygon_constrained(eps_out=1.44 ** 2, eps_in=2.8 ** 2, points=points, depth=220e-9, mask=mask,
-                                   bounds=bounds)
-    # geometry=Polygon(eps_in=2.8**2,eps_out=1.44**2)
-    opt = Optimization(forward_problem=forward_problem, fom=fom, geometry=geometry, optimizer=optimizer,
-                       solver='lumerical')
-
-    foms = []
-    fom = opt.run_forward_solves()
-    foms.append(fom)
-    # calculate the gradient using the adjoint solve
-    opt.run_adjoint_solves()
-    calculated_gradients = np.array(opt.calculate_gradients())
-    print calculated_gradients
+    pass
 
 
 

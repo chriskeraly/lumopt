@@ -77,7 +77,7 @@ class Geometry(object):
         # ls.add_D_monitors_to_fields_monitors(sim.solver_handle, 'opt_fields')
         # self.add_geo(sim=sim, params=params)
         sim=self.opt.make_sim(put_monitors=False)
-        eps,x,y,z = ls.get_eps_from_sim(sim.solver_handle)
+        eps,x,y,z = ls.get_eps_from_sim(sim.fdtd)
         if return_sim:
             return eps,x,y,z,sim
         else:
@@ -88,7 +88,7 @@ class Geometry(object):
         for geometry in self.geometries:
             script+=geometry.update_geo_in_sim(sim, params=params)
 
-        if eval: lumapi.evalScript(sim.solver_handle, script)
+        if eval: sim.fdtd.eval(script)
         return script
 
     def get_eps_update(self,sim,params=None):
@@ -97,7 +97,7 @@ class Geometry(object):
         sim.switch_to_layout()
         self.update_geo_in_sim(sim,params,eval=True)
         #ls.add_D_monitors_to_fields_monitors(sim.solver_handle, 'opt_fields')
-        eps,x,y,z = ls.get_eps_from_sim(sim.solver_handle)
+        eps,x,y,z = ls.get_eps_from_sim(sim.fdtd)
         return eps,x,y,z
 
     def get_d_eps_d_params(self,dx):

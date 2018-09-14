@@ -15,7 +15,7 @@ Make sure you have Lumerical installed, and that lumapi (the python api) works
 ```bash
 cd your/install/folder/
 git clone https://github.com/chriskeraly/LumOpt.git
-python setup.py -develop
+python setup.py develop
 ```
 
 I would strongly recommend using jupyter notebooks to run optimizations.
@@ -26,7 +26,7 @@ If you are not using jupyter notebooks:
 
 ```bash
 cd your/install/folder/examples/Ysplitter
-python splitteropt.py
+python splitter_opt_2D.py
 ```
 
-Otherwise copy `your/install/folder/examples/Ysplitter/splitteropt.py` into a notebook
+Otherwise copy `your/install/folder/examples/Ysplitter/splitter_opt_2D.py` into a notebook

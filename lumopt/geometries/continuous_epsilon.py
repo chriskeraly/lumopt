@@ -310,7 +310,7 @@ class FunctionDefinedContinuousEpsilon3DYeeGrid_withoffset(Geometry):
     #     return self.func(params)[0].reshape(-1)
 
     def get_eps_on_Yee_grid(self,eps):
-        '''Interpolates the eps provided onto the Yee Grid (boundaries are a little off)'''
+        '''Interpolates the eps provided onto the Yee Grid (boundaries are a little off), assumes constant grid spacing'''
 
         eps_x = eps.copy()
         eps_y = eps.copy()

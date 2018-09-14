@@ -168,7 +168,6 @@ def get_eps_from_sim(fdtd):
     z = fdtd.getv("z")
     fields_eps = np.stack((fields_eps_x, fields_eps_y, fields_eps_z), axis=-1)
 
-    #lumapi.close(handle)
     return fields_eps,x,y,z
 
 def set_spatial_interp(fdtd,monitor_name,setting):
