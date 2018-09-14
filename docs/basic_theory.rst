@@ -1,7 +1,7 @@
 Basic Theory
 ============
 
-Here some notes about why Adjoint Optimization is the good stuff
+Notes to come.
 
 Resources
 ---------

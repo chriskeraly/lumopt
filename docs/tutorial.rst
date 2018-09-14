@@ -82,7 +82,8 @@ Co-optimization
 The + operator can be used between two optimization objects that use the same parameters. This is for the moment the only way
 to do multi-wavelength optimization for example.
 
-An example of this can be seen in `examples/Ysplitter/robust_coupler.py`
+An example of this can be seen in `examples/Ysplitter/robust_coupler.py` where a the performance of a coupler is optimized
+for robustness: the figure of merit is the sum of the figures of merit for the nominal geometry, and a geometry with a 25nm extra bias.
 
 .. literalinclude:: ../examples/Ysplitter/robust_coupler.py
   :language: python
