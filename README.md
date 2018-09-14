@@ -6,11 +6,11 @@ This is a continuous adjoint opimtization wrapper for Lumerical, using Python as
 
 ## Tutorials, examples, and Documentation
 
-It is all here: link
+It is all here: https://readthedocs.org/projects/lumopt/
 
 ## Install
 
-Make sure you have Lumerical installed, and that lumapi (the python api) works
+Make sure you have the latest version of Lumerical installed, and that lumapi (the python api) works
 
 ```bash
 cd your/install/folder/
