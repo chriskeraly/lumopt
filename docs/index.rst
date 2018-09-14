@@ -14,7 +14,7 @@ Welcome to LumOpt: Easy Adjoint Optimization for Lumerical
     <video width="700" height="400" controls autoplay src="_static/splitter_vid.mp4"></video>
 
 
-PyEMOpt's Documentation Table of Content
+LumOpt's Documentation Table of Content
 ========================================
 
 .. toctree::
