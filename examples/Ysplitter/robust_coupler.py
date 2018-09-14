@@ -3,7 +3,8 @@
 import numpy as np
 from lumopt.optimization import Super_Optimization, Optimization
 from lumopt.geometries.polygon import function_defined_Polygon
-from lumopt.optimizers.generic_optimizers import FixedStepGradientDescent
+from lumopt.optimizers.generic_optimizers import ScipyOptimizers
+
 from lumopt.figures_of_merit.modematch import ModeMatch
 from lumopt.utilities.load_lumerical_scripts import load_from_lsf
 import os
