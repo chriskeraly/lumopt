@@ -1,20 +1,6 @@
 Tutorial
 ========
 
-Anatomy of an optimization
---------------------------
-
-Show a graph of the different object dependencies
-
-* Optimization
-    * Base simulation
-    * Geometry
-        * Materials
-    * FOM
-    * Optimizer
-    * Plotter
-
-
 Splitter Optimization
 ---------------------
 
