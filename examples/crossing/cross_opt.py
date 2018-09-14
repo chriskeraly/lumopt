@@ -27,7 +27,7 @@ geometry = function_defined_Polygon(func=cross, initial_params=np.linspace(0.25e
 fom = ModeMatch(modeorder=2)
 
 ######## DEFINE OPTIMIZATION ALGORITHM ########
-optimizer = ScipyOptimizers(max_iter=40)
+optimizer = ScipyOptimizers(max_iter=20)
 
 ######## PUT EVERYTHING TOGETHER ########
 opt = Optimization(base_script=script, fom=fom, geometry=geometry, optimizer=optimizer)

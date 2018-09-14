@@ -57,7 +57,7 @@ fom = ModeMatch(modeorder=3,monitor_name='fom',wavelength=1550e-9)
 # modematch to the 3rd order mode (fundamental TE mode)
 
 ######## DEFINE OPTIMIZATION ALGORITHM ########
-optimizer = ScipyOptimizers(max_iter=40,method='L-BFGS-B',scaling_factor=1e6)
+optimizer = ScipyOptimizers(max_iter=30,method='L-BFGS-B',scaling_factor=1e6)
 # This will run Scipy's implementation of the L-BFGS-B algoithm for at least 40 iterations. Since the variables are on the
 # order of 1e-6, we scale them up to be on the order of 1
 
