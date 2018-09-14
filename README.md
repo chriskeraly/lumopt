@@ -2,7 +2,8 @@
 
 ## Introduction
 
-This is a continuous adjoint opimtization wrapper for Lumerical, using Python as the main user interface. It is released under an MIT license.
+This is a continuous adjoint opimtization wrapper for Lumerical, using Python as the main user interface. It is released under an MIT license. It is still work in progress 
+and any contribution will be very welcome! New features to come out soon, and make it even easier to use (hopefully)!
 
 If you use this tool in any published work, please cite https://www.osapublishing.org/oe/abstract.cfm?uri=oe-21-18-21693 and give a link to this repo. Thanks!
 
@@ -12,7 +13,7 @@ It is all here: https://lumopt.readthedocs.io/en/latest/
 
 ## Install
 
-Make sure you have the latest version of Lumerical installed, and that lumapi (the python api) works
+Make sure you have the latest version of Lumerical installed (it won't work correctly with older versions), and that lumapi (the python api) works
 
 ```bash
 cd your/install/folder/
