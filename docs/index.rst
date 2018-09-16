@@ -11,7 +11,7 @@ Welcome to LumOpt: Easy Adjoint Optimization for Lumerical
 
 .. raw:: html
 
-   <video width="700" height="400" controls autoplay src="_static/splitter_vid.mp4"></video>
+   <video width="700" height="400" controls autoplay src="_static/cross_vid.mp4"></video>
 
 
 LumOpt's Documentation Table of Content
