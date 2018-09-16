@@ -14,8 +14,8 @@ import scipy
 ######## DEFINE BASE SIMULATION ########
 
 #Here I just use the same script for both simulations, but it's just to keep the example simple. You could use two
-script_1550=load_from_lsf(os.path.join(CONFIG['root'],'examples/WDM_splitter/WDM_splitter_base_TE_1550.lsf')).replace('1550e-9','1800e-9')
-script_1310=load_from_lsf(os.path.join(CONFIG['root'],'examples/WDM_splitter/WDM_splitter_base_TE_1550.lsf')).replace('1550e-9','1100e-9')
+script_1550=load_from_lsf(os.path.join(CONFIG['root'],'examples/WDM_splitter/WDM_splitter_base_TE_1550.lsf'))
+script_1310=load_from_lsf(os.path.join(CONFIG['root'],'examples/WDM_splitter/WDM_splitter_base_TE_1550.lsf')).replace('1550e-9','1310e-9')
 
 
 ######## DEFINE OPTIMIZABLE GEOMETRY ########
@@ -63,8 +63,8 @@ geometry_1310=geometry_1310_lower*geometry_1310_upper
 ######## DEFINE FIGURE OF MERIT ########
 # Although we are optimizing for the same thing, two separate fom objects must be create
 
-fom_1550=ModeMatch(modeorder=2,wavelength=1800e-9,monitor_name='fom_1550')
-fom_1310=ModeMatch(modeorder=2,wavelength=1100e-9,monitor_name='fom_1310')
+fom_1550=ModeMatch(modeorder=2,wavelength=1550e-9,monitor_name='fom_1550')
+fom_1310=ModeMatch(modeorder=2,wavelength=1310e-9,monitor_name='fom_1310')
 
 ######## DEFINE OPTIMIZATION ALGORITHM ########
 #For the optimizer, they should all be set the same, but different objects. Eventually this will be improved
