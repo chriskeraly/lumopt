@@ -7,7 +7,7 @@ size_x=10e-6;
 size_y=3e-6;
 mesh_x=20e-9;
 mesh_y=20e-9;
-separation=200e-9;
+separation=500e-9;
 finer_mesh_size=size_x+0.5e-6;
 
 ## GEOMETRY

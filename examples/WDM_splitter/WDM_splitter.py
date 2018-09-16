@@ -19,7 +19,7 @@ script_1310=load_from_lsf(os.path.join(CONFIG['root'],'examples/WDM_splitter/WDM
 
 
 ######## DEFINE OPTIMIZABLE GEOMETRY ########
-separation=200e-9
+separation=500e-9
 size_x=10e-6
 
 def lower_coupler_arm(params,n_points=10):
@@ -28,10 +28,10 @@ def lower_coupler_arm(params,n_points=10):
     n_interpolation_points=100
     polygon_points_x = np.linspace(min(points_x), max(points_x), n_interpolation_points)
     interpolator = scipy.interpolate.interp1d(points_x, points_y, kind='cubic')
-    polygon_points_y = [max(min(point,0e-6),-0.5e-6) for point in interpolator(polygon_points_x)]
+    polygon_points_y = [max(min(point,0e-6),-separation/2-0.25e-6) for point in interpolator(polygon_points_x)]
 
     polygon_points_up = [(x, y) for x, y in zip(polygon_points_x, polygon_points_y)]
-    polygon_points_down = [(0.5e-6,-separation/2-0.5e-6),(size_x-0.5e-6,-separation/2-0.5e-6)]
+    polygon_points_down = [(x, y-0.5e-6) for x, y in zip(polygon_points_x, polygon_points_y)]
     polygon_points = np.array(polygon_points_up[::-1] + polygon_points_down)
     return polygon_points#[::-1]
 
@@ -41,17 +41,17 @@ def upper_coupler_arm(params,n_points=10):
     n_interpolation_points=100
     polygon_points_x = np.linspace(min(points_x), max(points_x), n_interpolation_points)
     interpolator = scipy.interpolate.interp1d(points_x, points_y, kind='cubic')
-    polygon_points_y = [max(min(point,0.5e-6),-0e-6) for point in interpolator(polygon_points_x)]
+    polygon_points_y = [max(min(point,separation/2+0.5e-6),-0e-6) for point in interpolator(polygon_points_x)]
 
     polygon_points_up = [(x, y) for x, y in zip(polygon_points_x, polygon_points_y)]
-    polygon_points_down = [(0.5e-6,separation/2+0.5e-6),(size_x-0.5e-6,separation/2+0.5e-6)]
+    polygon_points_down = [(x, y+0.5e-6) for x, y in zip(polygon_points_x, polygon_points_y)]
     polygon_points = np.array(polygon_points_up + polygon_points_down[::-1])
     return polygon_points
 
 bounds = [(-0.25e-6, 0.25e-6)]*10
 
 #final value from splitter_opt_2D.py optimization
-initial_params=np.array(10*[0e-6])
+initial_params=np.linspace(0,0.24e-6,10)
 #initial_params=np.linspace(-0.25e-6,0.25e-6,10)
 geometry_1550_lower =  function_defined_Polygon(func=lower_coupler_arm,initial_params=initial_params,eps_out=1.44 ** 2, eps_in=2.8 ** 2,bounds=bounds,depth=220e-9,edge_precision=5)
 geometry_1550_upper =  function_defined_Polygon(func=upper_coupler_arm,initial_params=initial_params,eps_out=1.44 ** 2, eps_in=2.8 ** 2,bounds=bounds,depth=220e-9,edge_precision=5)
@@ -75,12 +75,7 @@ optimizer_1310=ScipyOptimizers(max_iter=40)
 opt_1550=Optimization(base_script=script_1550,fom=fom_1550,geometry=geometry_1550,optimizer=optimizer_1550)
 opt_1310=Optimization(base_script=script_1310,fom=fom_1310,geometry=geometry_1310,optimizer=optimizer_1310)
 
-opt=opt_1310+opt_1550
+opt=opt_1550+opt_1310
 
 ######## RUN THE OPTIMIZER ########
 opt.run()
-# opt_1550.initialize()
-# sim=opt_1550.make_sim()
-# from time import sleep
-# sleep(1000)
-# print 'ha'
