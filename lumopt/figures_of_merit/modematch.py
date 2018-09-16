@@ -45,20 +45,20 @@ class ModeMatch(fom):
         self.mode=None
         self.inverted_H_mode=None
 
-    def initialize(self,sim, monitor_name='fom', plot=False):
-        self.get_mode(sim, monitor_name,plot=plot)
+    def initialize(self,sim, plot=False):
+        self.get_mode(sim,plot=plot)
 
-    def get_mode(self, sim, monitor_name='fom', plot=False):
+    def get_mode(self, sim,  plot=False):
         '''Extracts the desired mode from the base simulation'''
 
         # TODO: deal with other mode propagation directions (should be ok but to be verified)
         fdtd=sim.fdtd
 
-        modesource_name = monitor_name + '_mode_extract'
+        modesource_name = self.monitor_name + '_mode_extract'
         fdtd.eval('addmode; set("name","{}");'.format(modesource_name))
 
 
-        ls.copy_properties(fdtd,monitor_name,modesource_name,['x', 'y', 'z', 'x span', 'y span', 'z span'])
+        ls.copy_properties(fdtd,self.monitor_name,modesource_name,['x', 'y', 'z', 'x span', 'y span', 'z span'])
         fdtd.eval("set('wavelength start',{});set('wavelength stop',{});".format(self.wavelengths[0],self.wavelengths[0]))
 
         fdtd.eval("set('direction','{}');".format(self.direction))
