@@ -6,7 +6,7 @@
 Welcome to LumOpt: Easy Adjoint Optimization for Lumerical
 ===========================================================
 
-2D Y-Splitter Optimization
+2D Crossing Optimization
 --------------------------
 
 .. raw:: html
