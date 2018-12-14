@@ -1,5 +1,4 @@
-from lumopt.lumerical_methods.lumerical_scripts import add_D_monitors_to_fields_monitors, \
-    remove_interpolation_on_monitor, add_index_to_fields_monitors, set_spatial_interp
+from lumopt.lumerical_methods.lumerical_scripts import add_D_monitors_to_fields_monitors, remove_interpolation_on_monitor, add_index_to_fields_monitors, set_spatial_interp
 from lumopt.utilities.simulation import Simulation
 from lumopt.utilities.gradients import Gradient_fields
 from time import sleep
@@ -245,7 +244,7 @@ class Optimization(Super_Optimization):
         '''
 
         if self.verbose:
-            print 'Running Forward Solves'
+            print('Running Forward Solves')
 
         # create the simulation
         forward_sim = self.make_sim()
@@ -271,7 +270,7 @@ class Optimization(Super_Optimization):
         Generates the adjoint simulations, runs them and extacts the adjoint fields
         '''
         if self.verbose:
-            print 'Running adjoint Solves'
+            print('Running adjoint Solves')
 
         adjoint_sim = self.make_sim()
 
@@ -290,7 +289,7 @@ class Optimization(Super_Optimization):
         Generates the adjoint simulations, moslty for testing
         '''
         if self.verbose:
-            print 'Running adjoint Solves'
+            print('Running adjoint Solves')
 
         adjoint_sim = self.make_sim()
 
@@ -338,7 +337,7 @@ class Optimization(Super_Optimization):
         self.run_forward_solves()
         self.run_adjoint_solves()
         adjoint_gradients=self.calculate_gradients(real=False)
-        print "Adjoint gradients= {}".format(adjoint_gradients)
+        print("Adjoint gradients= {}".format(adjoint_gradients))
         current_fom = self.fomHist[-1]
         current_eps = deepcopy(self.forward_fields.eps.copy())
         current_E = deepcopy(self.forward_fields.E)
@@ -360,17 +359,17 @@ class Optimization(Super_Optimization):
                 plt.pcolormesh(np.real(d_eps[:, :, 0, 0, 2]).transpose())
                 plt.show()
                 recalculated_adjoint_deriv = trapz3D(np.sum(sparse_pert_E*d_eps,axis=-1)[:,:,:,0],self.forward_fields.x,self.forward_fields.y,self.forward_fields.z)
-                print 'recalculated adjoint gradients={}'.format(recalculated_adjoint_deriv)
+                print('recalculated adjoint gradients={}'.format(recalculated_adjoint_deriv))
                 recalculated_adjoint_derivs.append(recalculated_adjoint_deriv)
             else:
-                print 'central not supported on this on yet'
+                print('central not supported on this on yet')
 
             if print_res: print('Derivative n {}={}'.format(i, deriv))
         self.geometry.update_geometry(params)
 
         if print_res:
-            print finite_differences_gradients
-            print recalculated_adjoint_derivs
+            print(finite_differences_gradients)
+            print(recalculated_adjoint_derivs)
 
         return finite_differences_gradients, recalculated_adjoint_derivs,adjoint_gradients
 
@@ -435,7 +434,7 @@ class Optimization(Super_Optimization):
                 self.geometry.update_geometry(params)
 
         if print_res:
-            print finite_differences_gradients
+            print(finite_differences_gradients)
 
         return finite_differences_gradients
 
@@ -444,7 +443,7 @@ class Optimization(Super_Optimization):
         '''Uses the forward and adjoint fields to calculate the derivatives to the optimization parameters
             Assumes the forward and adjoint solves have been run'''
         if self.verbose:
-            print 'Calculating Gradients'
+            print('Calculating Gradients')
 
         # Create the gradient fields
         self.gradient_fields = Gradient_fields(forward_fields=self.forward_fields, adjoint_fields=self.adjoint_fields)
@@ -470,7 +469,7 @@ class Optimization(Super_Optimization):
                 return inspect.stack()[num]  # 1 is get_caller's caller
             calling_file= os.path.abspath(inspect.getfile(get_caller(3)[0]))
         except:
-            print 'Couldnt copy python setupfile'
+            print('Couldnt copy python setupfile')
 
 
         directories = os.listdir(os.getcwd())
@@ -480,7 +479,7 @@ class Optimization(Super_Optimization):
             old = - 1
 
         if old == 25:
-            print 'Too many optimization folders in {}'.format(os.getcwd())
+            print('Too many optimization folders in {}'.format(os.getcwd()))
             raise ValueError
 
         new_dir_name = 'opts_{}'.format(old + 1)

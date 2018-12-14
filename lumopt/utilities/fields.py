@@ -150,7 +150,7 @@ class Fields(object):
         '''Calculates the mode overlap with another field. This assumes this mode has been normalized'''
         if not self.normalized:
             self.normalize_power()
-            print 'Normalized the mode being modematched to'
+            print('Normalized the mode being modematched to')
 
         if not (len(self.x)==len(other_field.x) and len(self.y)==len(other_field.y) and len(self.z)==len(other_field.z) and len(self.wl)==len(other_field.wl)):
             raise ValueError('Fields are not on same grid, (or not the same amount of wavelengths Modematch does not support this (write a method!!)')

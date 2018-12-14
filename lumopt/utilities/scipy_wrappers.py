@@ -143,28 +143,28 @@ def demo_interpolator():
     points = (np.array([3, 4]), np.array([1, 2]),np.array([5]))
     vals = np.array([10,11,12,13]).reshape(2,2,1)
 
-    print vals.shape
+    print(vals.shape)
     wi=wrapped_GridInterpolator(points,vals)
 
-    print wi((3.5,1.5,5))
-    print wi((3.5, 1, 5))
-    print wi([(3.5,1.5,5),(3.5,1,5)])
+    print(wi((3.5,1.5,5)))
+    print(wi((3.5, 1, 5)))
+    print(wi([(3.5,1.5,5),(3.5,1,5)]))
 
     points=(np.array([1]),np.array([2]))
     vals=np.array([5]).reshape(1,1)
 
     wi = wrapped_GridInterpolator(points, vals)
 
-    print wi((1, 2))
+    print(wi((1, 2)))
 
     ti=RegularGridInterpolator(points,vals)
     try:
-        print ti((3.5,1.5,5))
+        print(ti((3.5,1.5,5)))
     except:
-        print 'It didnt work for the regular interpolator!'
+        print('It didnt work for the regular interpolator!')
 
 if __name__=='__main__':
     demo_interpolator()
     import os
-    print os.getcwd()
-    print dblsimps(lambda x, y:x * y, 0, 10, -2, 2,points_per_dimension=3)
+    print(os.getcwd())
+    print(dblsimps(lambda x, y:x * y, 0, 10, -2, 2,points_per_dimension=3))

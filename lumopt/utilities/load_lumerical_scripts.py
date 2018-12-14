@@ -7,7 +7,7 @@ def load_from_lsf(script_file_name):
     :return:
     '''
 
-    with open(script_file_name, 'rb') as text_file:
+    with open(script_file_name, 'r') as text_file:
         lines = [line.strip().split('#',1)[0] for line in text_file.readlines()]
 
     script=""

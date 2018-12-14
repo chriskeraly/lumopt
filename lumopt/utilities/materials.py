@@ -85,5 +85,5 @@ class Material(object):
 if __name__=='__main__':
     test=Material()
     test.initialize()
-    print test.permittivities
-    print test.get_eps(1550e-9)
+    print(test.permittivities)
+    print(test.get_eps(1550e-9))

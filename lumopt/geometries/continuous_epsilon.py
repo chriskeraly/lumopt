@@ -1,3 +1,4 @@
+import sys
 from geometry import Geometry
 from lumopt.utilities.materials import Material
 import lumapi
@@ -31,21 +32,21 @@ class ContinousEpsilon2D(Geometry):
         fdtd.putv('y_geo',self.y)
         fdtd.putv('z_geo',np.array([self.z-self.depth/2,self.z+self.depth/2]))
 
-        script='addimport;' \
-               'temp=zeros(length(x_geo),length(y_geo),2);' \
-               'temp(:,:,1)=eps_geo;' \
-               'temp(:,:,2)=eps_geo;' \
-               'importnk2(sqrt(temp),x_geo,y_geo,z_geo);' \
-               'set("detail",1);'
+        script = (  'addimport;'
+                  + 'temp=zeros(length(x_geo),length(y_geo),2);'
+                  +  'temp(:,:,1)=eps_geo;'
+                  +  'temp(:,:,2)=eps_geo;'
+                  +  'importnk2(sqrt(temp),x_geo,y_geo,z_geo);'
+                  +  'set("detail",1);' )
 
         if self.addmesh:
-            mesh_script='addmesh;' \
-                        'set("x min",{});' \
-                        'set("x max",{});' \
-                        'set("y min",{});' \
-                        'set("y max",{});' \
-                        'set("dx",{});' \
-                        'set("dy",{});'.format(np.amin(self.x),np.amax(self.x),np.amin(self.y),np.amax(self.y),self.x[1]-self.x[0],self.y[1]-self.y[0])
+            mesh_script = (  'addmesh;'
+                           + 'set("x min",{});'
+                           + 'set("x max",{});'
+                           + 'set("y min",{});'
+                           + 'set("y max",{});'
+                           + 'set("dx",{});'
+                           + 'set("dy",{});').format(np.amin(self.x),np.amax(self.x),np.amin(self.y),np.amax(self.y),self.x[1]-self.x[0],self.y[1]-self.y[0])
             fdtd.eval(mesh_script)
         fdtd.eval(script)
 
@@ -57,9 +58,9 @@ class ContinousEpsilon2D(Geometry):
         for x in self.x:
             for y in self.y:#,y in zip(xx.reshape(-1),yy.reshape(-1)):
                 derivs.append(gradient_fields.integrate_square(center=(x,y),box=(dx,dy),z=self.z,wl=wavelength,real=real))
-            print '.',
-        print ''
-        print 'Done'
+                sys.stdout.write('.'); sys.stdout.flush()
+        print('')
+        print('Done')
         return derivs
 
     def initialize(self,wavelengths,opt):
@@ -138,21 +139,21 @@ class FunctionDefinedContinuousEpsilon2D(ContinousEpsilon2D):
         fdtd.putv('y_geo',self.y)
         fdtd.putv('z_geo',[self.z-self.depth/2,self.z+self.depth/2])
 
-        script='addimport;' \
-               'temp=zeros(length(x_geo),length(y_geo),2);' \
-               'temp(:,:,1)=eps_geo;' \
-               'temp(:,:,2)=eps_geo;' \
-               'importnk2(sqrt(temp),x_geo,y_geo,z_geo);' \
-               'set("detail",1);'
+        script = (  'addimport;'
+                  + 'temp=zeros(length(x_geo),length(y_geo),2);'
+                  + 'temp(:,:,1)=eps_geo;'
+                  + 'temp(:,:,2)=eps_geo;'
+                  + 'importnk2(sqrt(temp),x_geo,y_geo,z_geo);'
+                  + 'set("detail",1);' )
 
         if self.addmesh:
-            mesh_script='addmesh;' \
-                        'set("x min",{});' \
-                        'set("x max",{});' \
-                        'set("y min",{});' \
-                        'set("y max",{});' \
-                        'set("dx",{});' \
-                        'set("dy",{});'.format(np.amin(self.x),np.amax(self.x),np.amin(self.y),np.amax(self.y),self.x[1]-self.x[0],self.y[1]-self.y[0])
+            mesh_script = (  'addmesh;'
+                           + 'set("x min",{});'
+                           + 'set("x max",{});'
+                           + 'set("y min",{});'
+                           + 'set("y max",{});'
+                           + 'set("dx",{});'
+                           + 'set("dy",{});' ).format(np.amin(self.x),np.amax(self.x),np.amin(self.y),np.amax(self.y),self.x[1]-self.x[0],self.y[1]-self.y[0])
             fdtd.eval(mesh_script)
         fdtd.eval(script)
 
@@ -192,8 +193,8 @@ class FunctionDefinedContinuousEpsilon3DYeeGrid(Geometry):
             d_eps = self.func(d_params)[0]
             eps_derivatives.append((d_eps - current_eps)/self.dx)
 
-        """eps_derivatives are the derivatives for the output of self.func . We need 
-        the derivatives on the points of the Yee Cell though since nternally, FDTD interpolate 
+        """eps_derivatives are the derivatives for the output of self.func . We need
+        the derivatives on the points of the Yee Cell though since nternally, FDTD interpolate
         eps onto the Yee Grid. Here I assume that the mesh dimensions are constant in the area
         so things are easier to calculate"""
 
@@ -243,44 +244,44 @@ class FunctionDefinedContinuousEpsilon3DYeeGrid(Geometry):
         fdtd.putv('y_geo',self.y)
         fdtd.putv('z_geo',self.z)
 
-        script='addimport;' \
-               'importnk2(sqrt(eps_geo),x_geo,y_geo,z_geo);' \
-               'set("detail",1);'
+        script = (  'addimport;'
+                  + 'importnk2(sqrt(eps_geo),x_geo,y_geo,z_geo);'
+                  + 'set("detail",1);' )
 
         if self.addmesh:
-            mesh_script='addmesh;' \
-                        'set("x min",{});' \
-                        'set("x max",{});' \
-                        'set("y min",{});' \
-                        'set("y max",{});' \
-                        'set("z min",{});' \
-                        'set("z max",{});' \
-                        'set("dx",{});' \
-                        'set("dy",{});' \
-                        'set("dz",{});'.format(np.amin(self.x),np.amax(self.x),
-                                               np.amin(self.y),np.amax(self.y),
-                                               np.amin(self.z),np.amax(self.z),
-                                               self.x[1]-self.x[0],self.y[1]-self.y[0],
-                                               self.z[1]-self.z[0])
+            mesh_script = (  'addmesh;'
+                           + 'set("x min",{});'
+                           + 'set("x max",{});'
+                           + 'set("y min",{});'
+                           + 'set("y max",{});'
+                           + 'set("z min",{});'
+                           + 'set("z max",{});'
+                           + 'set("dx",{});'
+                           + 'set("dy",{});'
+                           + 'set("dz",{});' ).format(np.amin(self.x),np.amax(self.x),
+                                                      np.amin(self.y),np.amax(self.y),
+                                                      np.amin(self.z),np.amax(self.z),
+                                                      self.x[1]-self.x[0],self.y[1]-self.y[0],
+                                                      self.z[1]-self.z[0])
 
-            monitor_script = 'select("opt_fields");' \
-                          'set("x min",{});' \
-                          'set("x max",{});' \
-                          'set("y min",{});' \
-                          'set("y max",{});' \
-                          'set("z min",{});' \
-                          'set("z max",{});'.format(np.amin(self.x), np.amax(self.x),
-                                                 np.amin(self.y), np.amax(self.y),
-                                                 np.amin(self.z), np.amax(self.z))
-            index_script = 'select("opt_fields_index");' \
-                          'set("x min",{});' \
-                          'set("x max",{});' \
-                          'set("y min",{});' \
-                          'set("y max",{});' \
-                          'set("z min",{});' \
-                          'set("z max",{});'.format(np.amin(self.x), np.amax(self.x),
-                                                 np.amin(self.y), np.amax(self.y),
-                                                 np.amin(self.z), np.amax(self.z))
+            monitor_script = (  'select("opt_fields");'
+                              + 'set("x min",{});'
+                              + 'set("x max",{});'
+                              + 'set("y min",{});'
+                              + 'set("y max",{});'
+                              + 'set("z min",{});'
+                              + 'set("z max",{});' ).format(np.amin(self.x), np.amax(self.x),
+                                                            np.amin(self.y), np.amax(self.y),
+                                                            np.amin(self.z), np.amax(self.z))
+            index_script = (  'select("opt_fields_index");'
+                            + 'set("x min",{});'
+                            + 'set("x max",{});'
+                            + 'set("y min",{});'
+                            + 'set("y max",{});'
+                            + 'set("z min",{});'
+                            + 'set("z max",{});' ).format(np.amin(self.x), np.amax(self.x),
+                                                          np.amin(self.y), np.amax(self.y),
+                                                          np.amin(self.z), np.amax(self.z))
 
             fdtd.eval(mesh_script+monitor_script+index_script)
         fdtd.eval(script)
@@ -368,45 +369,45 @@ class FunctionDefinedContinuousEpsilon3DYeeGrid_withoffset(Geometry):
         fdtd.putv('y_geo',self.y)
         fdtd.putv('z_geo',self.z)
 
-        script='addimport;' \
-               'importnk2(sqrt(eps_geo),x_geo,y_geo,z_geo);' \
-               'set("data offset in yee cell",1);' \
-               'set("detail",1);'
+        script = (  'addimport;'
+                  + 'importnk2(sqrt(eps_geo),x_geo,y_geo,z_geo);'
+                  + 'set("data offset in yee cell",1);'
+                  + 'set("detail",1);' )
 
         if self.addmesh:
-            mesh_script='addmesh;' \
-                        'set("x min",{});' \
-                        'set("x max",{});' \
-                        'set("y min",{});' \
-                        'set("y max",{});' \
-                        'set("z min",{});' \
-                        'set("z max",{});' \
-                        'set("dx",{});' \
-                        'set("dy",{});' \
-                        'set("dz",{});'.format(np.amin(self.x),np.amax(self.x),
-                                               np.amin(self.y),np.amax(self.y),
-                                               np.amin(self.z),np.amax(self.z),
-                                               self.x[1]-self.x[0],self.y[1]-self.y[0],
-                                               self.z[1]-self.z[0])
+            mesh_script = (  'addmesh;'
+                           + 'set("x min",{});'
+                           + 'set("x max",{});'
+                           + 'set("y min",{});'
+                           + 'set("y max",{});'
+                           + 'set("z min",{});'
+                           + 'set("z max",{});'
+                           + 'set("dx",{});'
+                           + 'set("dy",{});'
+                           + 'set("dz",{});' ).format(np.amin(self.x),np.amax(self.x),
+                                                     np.amin(self.y),np.amax(self.y),
+                                                     np.amin(self.z),np.amax(self.z),
+                                                     self.x[1]-self.x[0],self.y[1]-self.y[0],
+                                                     self.z[1]-self.z[0])
 
-            monitor_script = 'select("opt_fields");' \
-                          'set("x min",{});' \
-                          'set("x max",{});' \
-                          'set("y min",{});' \
-                          'set("y max",{});' \
-                          'set("z min",{});' \
-                          'set("z max",{});'.format(np.amin(self.x), np.amax(self.x),
-                                                 np.amin(self.y), np.amax(self.y),
-                                                 np.amin(self.z), np.amax(self.z))
-            index_script = 'select("opt_fields_index");' \
-                          'set("x min",{});' \
-                          'set("x max",{});' \
-                          'set("y min",{});' \
-                          'set("y max",{});' \
-                          'set("z min",{});' \
-                          'set("z max",{});'.format(np.amin(self.x), np.amax(self.x),
-                                                 np.amin(self.y), np.amax(self.y),
-                                                 np.amin(self.z), np.amax(self.z))
+            monitor_script = (  'select("opt_fields");'
+                              + 'set("x min",{});'
+                              + 'set("x max",{});'
+                              + 'set("y min",{});'
+                              + 'set("y max",{});'
+                              + 'set("z min",{});'
+                              + 'set("z max",{});' ).format(np.amin(self.x), np.amax(self.x),
+                                                            np.amin(self.y), np.amax(self.y),
+                                                            np.amin(self.z), np.amax(self.z))
+            index_script = ( 'select("opt_fields_index");'
+                            + 'set("x min",{});'
+                            + 'set("x max",{});'
+                            + 'set("y min",{});'
+                            + 'set("y max",{});'
+                            + 'set("z min",{});'
+                            +  'set("z max",{});' ).format(np.amin(self.x), np.amax(self.x),
+                                                           np.amin(self.y), np.amax(self.y),
+                                                           np.amin(self.z), np.amax(self.z))
 
             fdtd.eval(mesh_script+monitor_script+index_script)
         fdtd.eval(script)
@@ -493,45 +494,45 @@ class FunctionDefinedContinuousEpsilon3DYeeGrid_withoffset2(Geometry):
         fdtd.putv('y_geo',self.y)
         fdtd.putv('z_geo',self.z)
 
-        script='addimport;' \
-               'importnk2(sqrt(eps_geo),x_geo,y_geo,z_geo);' \
-               'set("data offset in yee cell",1);' \
-               'set("detail",1);'
+        script = (  'addimport;'
+                  + 'importnk2(sqrt(eps_geo),x_geo,y_geo,z_geo);'
+                  + 'set("data offset in yee cell",1);'
+                  + 'set("detail",1);' )
 
         if self.addmesh:
-            mesh_script='addmesh;' \
-                        'set("x min",{});' \
-                        'set("x max",{});' \
-                        'set("y min",{});' \
-                        'set("y max",{});' \
-                        'set("z min",{});' \
-                        'set("z max",{});' \
-                        'set("dx",{});' \
-                        'set("dy",{});' \
-                        'set("dz",{});'.format(np.amin(self.x),np.amax(self.x),
-                                               np.amin(self.y),np.amax(self.y),
-                                               np.amin(self.z),np.amax(self.z),
-                                               self.x[1]-self.x[0],self.y[1]-self.y[0],
-                                               self.z[1]-self.z[0])
+            mesh_script = (  'addmesh;'
+                           + 'set("x min",{});'
+                           + 'set("x max",{});'
+                           + 'set("y min",{});'
+                           + 'set("y max",{});'
+                           + 'set("z min",{});'
+                           + 'set("z max",{});'
+                           + 'set("dx",{});'
+                           + 'set("dy",{});'
+                           + 'set("dz",{});' ).format(np.amin(self.x),np.amax(self.x),
+                                                      np.amin(self.y),np.amax(self.y),
+                                                      np.amin(self.z),np.amax(self.z),
+                                                      self.x[1]-self.x[0],self.y[1]-self.y[0],
+                                                      self.z[1]-self.z[0])
 
-            monitor_script = 'select("opt_fields");' \
-                          'set("x min",{});' \
-                          'set("x max",{});' \
-                          'set("y min",{});' \
-                          'set("y max",{});' \
-                          'set("z min",{});' \
-                          'set("z max",{});'.format(np.amin(self.x), np.amax(self.x),
-                                                 np.amin(self.y), np.amax(self.y),
-                                                 np.amin(self.z), np.amax(self.z))
-            index_script = 'select("opt_fields_index");' \
-                          'set("x min",{});' \
-                          'set("x max",{});' \
-                          'set("y min",{});' \
-                          'set("y max",{});' \
-                          'set("z min",{});' \
-                          'set("z max",{});'.format(np.amin(self.x), np.amax(self.x),
-                                                 np.amin(self.y), np.amax(self.y),
-                                                 np.amin(self.z), np.amax(self.z))
+            monitor_script = (  'select("opt_fields");'
+                              + 'set("x min",{});'
+                              + 'set("x max",{});'
+                              + 'set("y min",{});'
+                              + 'set("y max",{});'
+                              + 'set("z min",{});'
+                              + 'set("z max",{});' ).format(np.amin(self.x), np.amax(self.x),
+                                                            np.amin(self.y), np.amax(self.y),
+                                                            np.amin(self.z), np.amax(self.z))
+            index_script = (  'select("opt_fields_index");'
+                            + 'set("x min",{});'
+                            + 'set("x max",{});'
+                            + 'set("y min",{});'
+                            + 'set("y max",{});'
+                            + 'set("z min",{});'
+                            + 'set("z max",{});' ).format(np.amin(self.x), np.amax(self.x),
+                                                          np.amin(self.y), np.amax(self.y),
+                                                          np.amin(self.z), np.amax(self.z))
 
             fdtd.eval(mesh_script+monitor_script+index_script)
         fdtd.eval(script)
@@ -581,4 +582,4 @@ if __name__=='__main__':
     y_geo=opt.geometry.y
 
 
-    print 'ha'
+    print('ha')

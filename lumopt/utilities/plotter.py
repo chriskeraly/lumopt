@@ -45,13 +45,13 @@ class Plotter(object):
                 try:
                     optimization.optimizations[0].gradient_fields.plot_eps(self.ax[1,0])
                 except:
-                    print "can't plot geometry"
+                    print("can't plot geometry")
             try:
                 optimization.optimizations[0].gradient_fields.plot(self.fig,self.ax[1,1],self.ax[1,2])
             except:
-                print "can't plot gradient fields"
+                print("can't plot gradient fields")
             # optimization.optimizations[0].geometry.plot(self.ax[1,0])
-        print 'plot updated'
+        print('plot updated')
         plt.tight_layout()
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()

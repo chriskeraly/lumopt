@@ -12,29 +12,29 @@ def get_source_power(fdtd, wl=1550e-9):
 
 def add_point_monitor(fdtd,monitor_name,position):
     '''This script adds a point monitor in a simulation'''
-    script = "addpower;" \
-             "set('name','{}');" \
-             "set('monitor type','Point');" \
-             "set('x',{});" \
-             "set('y',{});" \
-             "set('z',{});".format(monitor_name,position[0],position[1],position[2])
+    script = (  "addpower;"
+              + "set('name','{}');"
+              + "set('monitor type','Point');"
+              + "set('x',{});"
+              + "set('y',{});"
+              + "set('z',{});" ).format(monitor_name,position[0],position[1],position[2])
     fdtd.eval(script)
 
 def add_point_monitor_script(monitor_name,position):
     '''This script adds a point monitor in a simulation'''
-    script = "addpower;" \
-             "set('name','{}');" \
-             "set('monitor type','Point');" \
-             "set('x',{});" \
-             "set('y',{});" \
-             "set('z',{});".format(monitor_name,position[0],position[1],position[2])
+    script = (  "addpower;"
+              + "set('name','{}');"
+              + "set('monitor type','Point');"
+              + "set('x',{});"
+              + "set('y',{});"
+              + "set('z',{});" ).format(monitor_name,position[0],position[1],position[2])
     return script
 
 def remove_interpolation_on_monitor(fdtd,monitor_name='opt_fields'):
     ''' Removes the interpolation from the monitor (not to be used lightly!)'''
 
-    script="select({});" \
-           "set('spatial interpolation','none');".format(monitor_name)
+    script = (  "select({});"
+              + "set('spatial interpolation','none');" ).format(monitor_name)
     fdtd.eval(script)
 
     return
@@ -46,16 +46,16 @@ def get_fields_no_interp(fdtd, monitor_name, get_eps=False, get_D=False, get_H=F
     It returns a Field object'''
     #print 'getting raw fields for {}'.format(monitor_name)
     # script="m='{}';".format(monitor_name)
-    # script+="x = getdata(m,'x');"\
-    #         "y = getdata(m,'y');"\
-    #         "z = getdata(m,'z');"\
-    #         "f = getdata(m,'f');"\
-    #         "delta_x = getdata(m,'delta_x');"\
-    #         "delta_y = getdata(m,'delta_y');"\
-    #         "if (getdata(m,'dimension')==2){ delta_z=0; } else { delta_z=getdata(m,'delta_z');}"\
-    #         "Ex = getdata(m, 'Ex');" \
-    #         "Ey = getdata(m, 'Ey');"\
-    #         "Ez = getdata(m, 'Ez');"
+    # script += (  "x = getdata(m,'x');"
+    #            + "y = getdata(m,'y');"
+    #            + "z = getdata(m,'z');"
+    #            + "f = getdata(m,'f');"
+    #            + "delta_x = getdata(m,'delta_x');"
+    #            + "delta_y = getdata(m,'delta_y');"
+    #            + "if (getdata(m,'dimension')==2){ delta_z=0; } else { delta_z=getdata(m,'delta_z');}"
+    #            + "Ex = getdata(m, 'Ex');"
+    #            + "Ey = getdata(m, 'Ey');"
+    #            + "Ez = getdata(m, 'Ez');"
     # lumapi.evalScript(handle, script)
     # fields_x = lumapi.getVar(handle, "x")
     # fields_y = lumapi.getVar(handle, "y")
@@ -73,12 +73,12 @@ def get_fields_no_interp(fdtd, monitor_name, get_eps=False, get_D=False, get_H=F
     # fields_lambda=c/fields_f
     #
     if get_eps:
-        script="index_x=getdata('{0}','index_x');" \
-               "index_y=getdata('{0}','index_y');" \
-               "index_z=getdata('{0}','index_z');" \
-               "eps_x=index_x^2;" \
-               "eps_y=index_y^2;" \
-               "eps_z=index_z^2;".format(monitor_name+ '_index')
+        script = (  "index_x=getdata('{0}','index_x');"
+                  + "index_y=getdata('{0}','index_y');"
+                  + "index_z=getdata('{0}','index_z');"
+                  + "eps_x=index_x^2;"
+                  + "eps_y=index_y^2;"
+                  + "eps_z=index_z^2;" ).format(monitor_name+ '_index')
         fdtd.eval(script)
         fields_eps_x = fdtd.getv("eps_x")
         fields_eps_y = fdtd.getv("eps_y")
@@ -134,10 +134,10 @@ def get_fields(fdtd, monitor_name, get_eps=False, get_D=False, get_H=False,noint
         return get_fields_interp(fdtd, monitor_name, get_eps, get_D, get_H)
 
 def get_eps_from_sim(fdtd):
-    script='select("FDTD");' \
-           'set("simulation time",0.1e-15);' \
-           'save("eps_extract");' \
-           'run;'
+    script = (  'select("FDTD");'
+              + 'set("simulation time",0.1e-15);'
+              + 'save("eps_extract");'
+              + 'run;' )
     fdtd.eval(script)
     # lumapi.evalScript(handle, "eps=getresult('{}','eps');".format('opt_fields' + '_index'))
     # #lumapi.evalScript(handle, "eps=getresult('{}','eps');".format('opt_fields' + '_D_index'))
@@ -150,15 +150,15 @@ def get_eps_from_sim(fdtd):
     # y=lumapi.getVar(handle,'y')
     # z=lumapi.getVar(handle,'z')
 
-    script = "index_x=getdata('{0}','index_x');" \
-             "index_y=getdata('{0}','index_y');" \
-             "index_z=getdata('{0}','index_z');" \
-             "eps_x=index_x^2;" \
-             "eps_y=index_y^2;" \
-             "eps_z=index_z^2;" \
-             "x = getdata('{0}','x');"\
-             "y = getdata('{0}','y');"\
-             "z = getdata('{0}','z');".format('opt_fields' + '_index')
+    script = (  "index_x=getdata('{0}','index_x');"
+              + "index_y=getdata('{0}','index_y');"
+              + "index_z=getdata('{0}','index_z');"
+              + "eps_x=index_x^2;"
+              + "eps_y=index_y^2;"
+              + "eps_z=index_z^2;"
+              + "x = getdata('{0}','x');"
+              + "y = getdata('{0}','y');"
+              + "z = getdata('{0}','z');").format('opt_fields' + '_index')
     fdtd.eval(script)
     fields_eps_x = fdtd.getv("eps_x")
     fields_eps_y = fdtd.getv("eps_y")
@@ -212,14 +212,16 @@ def make_fields_dataset(fdtd,fields,prefactor):
     fdtd.eval('EM.addattribute("E", E*prefactor);')
     fdtd.eval('EM.addattribute("H", H*prefactor);')  # Optional
 
-def copy_properties(fdtd,origin,destination,properties= ['x', 'y', 'z', 'x_span', 'y_span', 'z_span']):
+def copy_properties(fdtd, origin, destination, properties = ['x', 'y', 'z', 'x_span', 'y_span', 'z_span']):
+    origin = origin if 'model::' in origin else 'model::' + origin
     orig = fdtd.getObjectById(origin)
+    destination = destination if 'model::' in destination else 'model::' + destination
     dest = fdtd.getObjectById(destination)
     for thing in properties:
         try:
             dest.__setattr__(thing.replace(' ','_'), orig.__getattr__(thing.replace(' ','_')))
         except:
-            print 'Could not copy {} from {} to {} '.format(thing,origin,destination)
+            print('Could not copy {} from {} to {} '.format(thing, origin, destination))
 
 def set_injection_axis(fdtd,source_name):
     src = fdtd.getObjectById(source_name)
@@ -281,18 +283,17 @@ def add_dipole_script(x, y, z, wavelength, dipole, name_suffix='', magnetic=Fals
         if not amplitude==0:
             lumerical_script = "adddipole;"
             if magnetic: lumerical_script += "set('dipole type','Magnetic dipole');"
-            lumerical_script += "set('name','{8}');" \
-                                "set('x',{0});" \
-                                "set('y',{1});" \
-                                "set('z',{2});" \
-                                "set('theta',{3});" \
-                                "set('phi',{4});" \
-                                "set('phase',{5});" \
-                                "set('center wavelength',{6});" \
-                                "set ('wavelength span',0);" \
-                                "baseAmp=get('base amplitude');" \
-                                "set('amplitude',{7}/baseAmp);".format(x, y, z, theta, phi, phase_deg, wavelength,
-                                                                       amplitude, dir + name_suffix)
+            lumerical_script += (  "set('name','{8}');"
+                                 + "set('x',{0});"
+                                 + "set('y',{1});"
+                                 + "set('z',{2});"
+                                 + "set('theta',{3});"
+                                 + "set('phi',{4});"
+                                 + "set('phase',{5});"
+                                 + "set('center wavelength',{6});"
+                                 + "set ('wavelength span',0);"
+                                 + "baseAmp=get('base amplitude');"
+                                 + "set('amplitude',{7}/baseAmp);" ).format(x, y, z, theta, phi, phase_deg, wavelength, amplitude, dir + name_suffix)
 
             script+=lumerical_script
 

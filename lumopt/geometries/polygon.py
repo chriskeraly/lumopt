@@ -1,4 +1,4 @@
-from geometry import Geometry
+from lumopt.geometries.geometry import Geometry
 import numpy as np
 from lumopt.utilities.edge import Edge
 import scipy
@@ -74,8 +74,8 @@ class Polygon(Geometry):
         gradient_pairs_edges=[]
         for edge in self.edges:
             gradient_pairs_edges.append(edge.derivative(gradient_fields,wavelength,n_points=self.edge_precision,real=real))
-            print '.',
-        print ''
+            print('.')
+        print('')
         #the gradients returned for an edge derivative are the gradients with respect to moving each end point perpendicular to that edge
         #This is not exactly what we are looking for here, since we want the derivative w/ respect to moving each point
         #in the x or y direction, so coming up is a lot of projections...
@@ -127,21 +127,21 @@ class Polygon(Geometry):
             points = np.reshape(params, (-1, 2))
         fdtd.putv('vertices', points)
 
-        script = "addpoly;" \
-                 "set('name','polygon_{0}');" \
-                 "set('z',{1});" \
-                 "set('x',0);" \
-                 "set('y',0);" \
-                 "set('z span',{2});" \
-                 "set('vertices',vertices);" \
-                 "{3}".format(self.hash, self.z, self.depth, self.eps_in.set_script())
+        script = ("addpoly;" +
+                  "set('name','polygon_{0}');" +
+                  "set('z',{1});" +
+                  "set('x',0);" +
+                  "set('y',0);" +
+                  "set('z span',{2});" +
+                  "set('vertices',vertices);" +
+                  "{3}").format(self.hash, self.z, self.depth, self.eps_in.set_script())
         fdtd.eval(script)
 
     def update_geo_in_sim(self,sim,params):
         points = np.reshape(params, (-1, 2))
         sim.fdtd.putv('vertices', points)
-        script = "select('polygon_{0}');" \
-                 "set('vertices',vertices);".format(self.hash)
+        script = ("select('polygon_{0}');" +
+                  "set('vertices',vertices);").format(self.hash)
         sim.fdtd.eval(script)
 
     def plot(self,ax):
@@ -256,17 +256,17 @@ class function_defined_Polygon(Polygon):
         #vertices_string=format(matlab.double(points.tolist())).replace('],[','];[')
         vertices_string=np.array2string(points,max_line_width=10e10,floatmode='unique',separator=',').replace(',\n',';')
         if not only_update:
-            script = "addpoly;" \
-                     "set('name','polygon_{0}');".format(self.hash)
+            script = (  "addpoly;"
+                      + "set('name','polygon_{0}');" ).format(self.hash)
         else:
             script = "select('polygon_{0}');".format(self.hash)
 
-        script=script+  "set('z',{1});" \
-                        "set('x',0);" \
-                        "set('y',0);" \
-                        "set('z span',{2});" \
-                        "set('vertices',{3});" \
-                        "{4}".format(self.hash, self.z, self.depth,vertices_string, self.eps_in.set_script())
+        script += (  "set('z',{1});"
+                   + "set('x',0);"
+                   + "set('y',0);"
+                   + "set('z span',{2});"
+                   + "set('vertices',{3});"
+                   + "{4}" ).format(self.hash, self.z, self.depth,vertices_string, self.eps_in.set_script())
         return script
 
     def add_geo(self, sim, params=None,eval=True,only_update=False):

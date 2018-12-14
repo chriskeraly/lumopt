@@ -2,7 +2,7 @@ import lumopt.lumerical_methods.lumerical_scripts as ls
 import numpy as np
 from lumopt import CONFIG
 import sys
-from fom import fom
+from lumopt.figures_of_merit.fom import fom
 from lumopt.utilities.fields import Fields
 
 
@@ -72,11 +72,10 @@ class ModeMatch(fom):
     def put_monitors(self,simulation):
         ''' Make sure the field monitor is looking at the right wavelength'''
 
-        script="select('{}');" \
-               "set('override global monitor settings',1);" \
-               "set('frequency points',1);" \
-               "set('wavelength center',{});".format(self.monitor_name,self.wavelengths[0])
-
+        script = (  "select('{}');"
+                  + "set('override global monitor settings',1);"
+                  + "set('frequency points',1);"
+                  + "set('wavelength center',{});" ).format(self.monitor_name,self.wavelengths[0])
 
         simulation.fdtd.eval(script)
 
