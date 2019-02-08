@@ -1,16 +1,12 @@
-def load_from_lsf(script_file_name):
-    '''
-    A very simple function that can load an lsf file and reformats it to work with this code.
-    Effectively it strips out all comments from the file, because the comments don't play well with lumapi
+""" Copyright chriskeraly
+    Copyright (c) 2019 Lumerical Inc. """
 
-    :param script_file_name: Just the name of the script
-    :return:
-    '''
+def load_from_lsf(script_file_name):
+    ''' Loads an *.lsf scritp file and strips out all comments. '''
 
     with open(script_file_name, 'r') as text_file:
-        lines = [line.strip().split('#',1)[0] for line in text_file.readlines()]
-
-    script=""
-    for line in lines:
-        script+=line
+        lines = [line.strip().split(sep = '#', maxsplit = 1)[0] for line in text_file.readlines()]
+    script = ' '.join(lines)
+    if not script:
+        raise UserWarning('empty script.')
     return script

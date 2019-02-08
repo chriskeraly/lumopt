@@ -1,11 +1,9 @@
+""" Copyright chriskeraly
+    Copyright (c) 2019 Lumerical Inc. """
 
 from lumopt import CONFIG
-
 import sys
-
-
 import lumapi
-
 import numpy as np
 
 class Material(object):
@@ -21,7 +19,7 @@ class Material(object):
 
       :param material: A string (such as "Si (Silicon) - Palik") or a float that represents the material permittivity (3.4**2 for Silicon for example)
       '''
-      # TODO: For the moment this doesn't work great with multiple wavelengths
+      # TODO: extend to multiple wavelengths
 
 
     def __init__(self,material='Si (Silicon) - Palik',mesh_order=None):
@@ -35,10 +33,8 @@ class Material(object):
 
         if type(self.material) is str:
             self.permittivities = self.get_lumerical_permitivities(wavelengths)
-        else:# type(self.material) is float or type(self.material) is int:
+        else:
             self.permittivities =self.material
-        # else:
-        #     raise ValueError('The material should be defined as a float or a string')
 
         self.wavelengths=np.array(wavelengths).squeeze()
 
@@ -80,10 +76,3 @@ class Material(object):
             return self.permittivities
         else:
             return np.interp(wl,self.wavelengths,self.permittivities)
-
-
-if __name__=='__main__':
-    test=Material()
-    test.initialize()
-    print(test.permittivities)
-    print(test.get_eps(1550e-9))

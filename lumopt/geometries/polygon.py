@@ -1,13 +1,15 @@
-from lumopt.geometries.geometry import Geometry
+""" Copyright chriskeraly
+    Copyright (c) 2019 Lumerical Inc. """
+
+import sys
 import numpy as np
+import scipy as sp
+import random
+import lumapi
+from lumopt.geometries.geometry import Geometry
 from lumopt.utilities.edge import Edge
-import scipy
 from lumopt.utilities.materials import Material
 
-
-import lumapi
-import random
-#import matlab
 
 class Polygon(Geometry):
     '''An polygon extruded in the z direction, where the points are allowed to move in any direction in the x-y plane. The points
@@ -36,7 +38,7 @@ class Polygon(Geometry):
 
     self_update=False
 
-    def __init__(self,points=np.array([(1,1),(-1,1),(-1,-1),(1,-1)])*0.05e-6,z=0,depth=100e-9,eps_out=2**2,eps_in=3.44**2,edge_precision=10,bounds=None,dx=1e-9):
+    def __init__(self,points, z, depth, eps_out, eps_in, edge_precision, bounds, dx):
         #given properties
         self.points=points
         self.z=z
@@ -74,7 +76,7 @@ class Polygon(Geometry):
         gradient_pairs_edges=[]
         for edge in self.edges:
             gradient_pairs_edges.append(edge.derivative(gradient_fields,wavelength,n_points=self.edge_precision,real=real))
-            print('.')
+            sys.stdout.write('.')
         print('')
         #the gradients returned for an edge derivative are the gradients with respect to moving each end point perpendicular to that edge
         #This is not exactly what we are looking for here, since we want the derivative w/ respect to moving each point
@@ -101,11 +103,6 @@ class Polygon(Geometry):
     def update_geometry(self,points_linear):
         '''Sets the points. Must be fed a linear array of points, because during the optimization the point coordinates are not by pair'''
         self.points =np.reshape(points_linear,(-1,2))
-
-    def update_geometry_points(self, points):
-        '''For debugging. takes in point coordinates as tuples :)'''
-        self.points = points
-
 
     def get_current_params(self):
         '''returns the points coordinates linearly '''
@@ -158,21 +155,8 @@ class Polygon(Geometry):
         ax.set_ylabel('y (um)')
         return True
 
-def taper_splitter(params):
-    '''Just a taper where the paramaters are the y coordinates of the nodes of a cubic spline'''
-    points_x=np.concatenate(([-1.01e-6],np.linspace(-1e-6,1e-6,18),[1.01e-6]))
-    points_y=np.concatenate(([0.25e-6],params,[0.6e-6]))
-    n_interpolation_points=100
-    polygon_points_x = np.linspace(min(points_x), max(points_x), n_interpolation_points)
-    interpolator = scipy.interpolate.interp1d(points_x, points_y, kind='cubic')
-    polygon_points_y = interpolator(polygon_points_x)
-    polygon_points_y = np.maximum(0.2e-6, (np.minimum(1e-6, polygon_points_y)))
-    polygon_points_up = [(x, y) for x, y in zip(polygon_points_x, polygon_points_y)]
-    polygon_points_down = [(x, -y) for x, y in zip(polygon_points_x, polygon_points_y)]
-    polygon_points = np.array(polygon_points_up[::-1] + polygon_points_down)
-    return polygon_points
 
-class function_defined_Polygon(Polygon):
+class FunctionDefinedPolygon(Polygon):
     '''This defines a polygon from a function that takes the optimization parameters and returns a set of points.
 
     :param func:
@@ -197,8 +181,7 @@ class function_defined_Polygon(Polygon):
         see :class:`~lumpot.geometries.polygon.Polygon`
         '''
 
-    def __init__(self,func=taper_splitter,initial_params=np.linspace(0.25e-6,0.6e-6,18),bounds=None,z=0,depth=220e-9,eps_out=1.44**2,eps_in=3.44**2,edge_precision=10,dx=0.01e-9):
-        #given properties
+    def __init__(self, func, initial_params, bounds, z, depth, eps_out, eps_in, edge_precision, dx):
         self.points=func(initial_params)
         self.func=func
         self.z=z
@@ -220,9 +203,6 @@ class function_defined_Polygon(Polygon):
         self.dx=dx
         self.hash = random.getrandbits(128)
 
-
-        return
-
     def update_geometry(self,params):
         self.points=self.func(params)
         self.current_params=params
@@ -236,7 +216,7 @@ class function_defined_Polygon(Polygon):
 
         wavelength=wavelengths[0] #TODO THIS IS NOT DEALING WITH MULTIPLE WAVELENGTHS
         polygon_gradients = np.array(
-            super(function_defined_Polygon, self).calculate_gradients(gradient_fields, wavelength,real=real))
+            super(FunctionDefinedPolygon, self).calculate_gradients(gradient_fields, wavelength,real=real))
 
         polygon_points_linear = self.func(self.current_params).reshape(-1)
         dx = 1e-11
@@ -253,8 +233,7 @@ class function_defined_Polygon(Polygon):
         return self.gradients[-1]
 
     def add_poly_script(self,points,only_update=False):
-        #vertices_string=format(matlab.double(points.tolist())).replace('],[','];[')
-        vertices_string=np.array2string(points,max_line_width=10e10,floatmode='unique',separator=',').replace(',\n',';')
+        vertices_string = np.array2string(points,max_line_width=10e10,floatmode='unique',separator=',').replace(',\n',';')
         if not only_update:
             script = (  "addpoly;"
                       + "set('name','polygon_{0}');" ).format(self.hash)
@@ -284,30 +263,3 @@ class function_defined_Polygon(Polygon):
 
     def update_geo_in_sim(self, sim, params, eval=False):
         return self.add_geo(sim,params,eval,only_update=True)
-
-def cross(params):
-    '''Example of a function for a cross defined by a spline'''
-    y_end = params[-1]
-    x_end = 0 - y_end
-    points_x = np.concatenate(([-2.01e-6], np.linspace(-2e-6, x_end, 10)))
-    points_y = np.concatenate(([0.25e-6], params))
-    n_interpolation_points = 50
-    polygon_points_x = np.linspace(min(points_x), max(points_x), n_interpolation_points)
-    interpolator = scipy.interpolate.interp1d(points_x, points_y, kind='cubic')
-    polygon_points_y = [max(min(point, 1e-6), -1e-6) for point in interpolator(polygon_points_x)]
-
-    # pp= polygon points
-    # r=right l=left
-    # u=up d=down
-    pplu = [(x, y) for x, y in zip(polygon_points_x, polygon_points_y)]
-    ppld = [(x, -y) for x, y in zip(polygon_points_x, polygon_points_y)]
-    ppdl = [(-y, x) for x, y in zip(polygon_points_x, polygon_points_y)]
-    ppdr = [(y, x) for x, y in zip(polygon_points_x, polygon_points_y)]
-    pprd = [(-x, -y) for x, y in zip(polygon_points_x, polygon_points_y)]
-    ppru = [(-x, y) for x, y in zip(polygon_points_x, polygon_points_y)]
-    ppur = [(y, -x) for x, y in zip(polygon_points_x, polygon_points_y)]
-    ppul = [(-y, -x) for x, y in zip(polygon_points_x, polygon_points_y)]
-    polygon_points = np.array(
-        pplu[::-1] + ppld[:-1] + ppdl[::-1] + ppdr[:-1] + pprd[::-1] + ppru[:-1] + ppur[::-1] + ppul[:-1])
-
-    return polygon_points

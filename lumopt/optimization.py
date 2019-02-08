@@ -1,19 +1,25 @@
-from lumopt.lumerical_methods.lumerical_scripts import add_D_monitors_to_fields_monitors, remove_interpolation_on_monitor, add_index_to_fields_monitors, set_spatial_interp
-from lumopt.utilities.simulation import Simulation
-from lumopt.utilities.gradients import Gradient_fields
-from time import sleep
-import copy
-from lumopt.utilities.plotter import Plotter
-from lumopt.utilities.scipy_wrappers import trapz3D
-import numpy as np
+""" Copyright chriskeraly
+    Copyright (c) 2019 Lumerical Inc. """
+
 import os
+import time
+import shutil
+import inspect
+import copy
 from copy import deepcopy
+import numpy as np
 import matplotlib.pyplot as plt
 
+from lumopt.utilities.simulation import Simulation
+from lumopt.utilities.gradients import Gradient_fields
+from lumopt.utilities.plotter import Plotter
+from lumopt.utilities.scipy_wrappers import trapz3D
+from lumopt.lumerical_methods.lumerical_scripts import add_index_to_fields_monitors, enable_accurate_conformal_interface_detection
+
 class Super_Optimization(object):
-    ''' Optimization parent class which allows the user to use the + operator to co-optimize two optimizations which use
-    the same parameters. The figures of merit are simply added. Plotting functions for fields and geometries uses the first
-    optimization'''
+    ''' Optimization base class which allows the user to use the addition operator to co-optimize two figures of merit
+        that take the same parameters. The figures of merit are simply added and the plotting functions use the first
+        figure of merit.'''
 
     def __init__(self,optimizations):
         self.optimizations=optimizations
@@ -24,7 +30,7 @@ class Super_Optimization(object):
 
     def initialize(self,start_params=None,bounds=None):
 
-        print('Initializing Super Optimization')
+        print('Initializing super optimization')
 
         self.optimizer = copy.deepcopy(self.optimizations[0].optimizer)
         self.plotter=self.optimizations[0].plotter
@@ -57,18 +63,15 @@ class Super_Optimization(object):
             self.optimizer.initialize(start_params=start_params,callable_fom=callable_fom,callable_jac=callable_jac,bounds=bounds,plotting_function=plotting_function)
 
 
-    def run(self, verbose=True):
-        '''Inititalizes and then runs the optimization
+    def run(self):
+        ''' Inititalizes and then runs the optimization. '''
 
-        :param verbose: Defines how verbose the optimization should be'''
-
-        self.verbose = verbose
         self.initialize()
         if self.plotter.movie:
             with self.plotter.writer.saving(self.plotter.fig, "optimization.mp4", 100):
-                self.optimizer.run(verbose)
+                self.optimizer.run()
         else:
-            self.optimizer.run(verbose)
+            self.optimizer.run()
 
         print('FINAL FOM = {}'.format(self.optimizer.fom_hist[-1]))
         print('FINAL PARAMETERS = {}'.format(self.optimizer.params_hist[-1]))
@@ -76,73 +79,52 @@ class Super_Optimization(object):
 
 
 class Optimization(Super_Optimization):
-    '''The Optimization class contains all the aspects of the optimization problem, and can ultimitely initialize and run
-    the optimization once it has been set up.\n\n
-    In order for the optimization to run, it needs to know:
-        - How to build the forward problem
-        - What the figure of merit is (FOM)
-        - What the geometry to optimize is, and what are it's shape parameters
-        - What optimization subroutine to use (Gradient descent, l-BFGS-G...)
+    """ Acts as a master class for all the optimization pieces. Calling the function run will perform the full optimization.
+        To perform an optimization, four key pieces are requred. These are: 
+               1) a script to generate the base simulation,
+               2) an object that defines and collects the figure of merit,
+               3) an object that generates the shape under optimization for a given set of optimization parameters and
+               4) a SciPy gradient based minimizer.
 
-    '''
+        :base_script: string with script to generate the base simulation.
+        :fom:         figure of merit object (see class ModeMatch).
+        :geometry:    optimizable geometry (see class FunctionDefinedPolygon).
+        :optimizer:   SciyPy minimizer wrapper (see class ScipyOptimizers).
+    """
 
-
-    def __init__(self, base_script, fom, geometry, optimizer, plotter=Plotter(),use_deps=False):
-        '''
-        :param script:
-            A lumerical script that can build the underalying base for the forward problem. There is helper function to load it from an lsf file (:func:`lumopt.utilities.load_lumerical_scripts.load_from_lsf`)
-        :param fom:
-            an instance of a FOM class. This class knows how to calculate the figure of merit from fields in the simulation
-            as well as what the adjoint sources should be
-        :param geometry:
-            an instance of a geometry class. The geometry is usually parametrized by a set of parameters which
-            are the parameters to optimize. The geometry class knows how to add itself to a simulation, and how to calculate the
-            derivatives of the figure of merit wrt to it's parameters, given the forward and adjoint fields.
-        :param optimizer:
-            An instance of an optimizer class, it will decide from the figures of merits and the Jacobians calculated how to
-            update the shape parameters
-        :param Plotter:
-            Plotter object. Is set by default and shouldn't need tweaking.
-        :param use_deps:
-            In development. This will implement a discrete adjoint in space, by directly extracting the permittivity derivatives
-            from Lumerical. There are changes that need to be implemented within Lumerical for this to work.
-
-        '''
+    def __init__(self, base_script, fom, geometry, optimizer, use_deps = True):
 
         self.base_script = base_script
         self.fom = fom
         self.geometry = geometry
         self.optimizer = optimizer
-        self.plotter=plotter
+        self.use_deps = use_deps
+        if use_deps:
+            print("Accurate interface detection enabled")
+
+        self.plotter = Plotter()
         self.forward_fields = None
         self.adjoint_fields = None
         self.gradients = None
         self.fomHist = []
         self.paramsHist = []
-        self.iteration = 0
         self.gradient_fields = None
-        self.verbose = True
-        self.use_deps = use_deps
 
-        self.goto_new_sims_folder()
+        frame = inspect.stack()[1]
+        calling_file_name = os.path.abspath(frame[0].f_code.co_filename)
+        Optimization.goto_new_opts_folder(calling_file_name, base_script)
         self.workingDir = os.getcwd()
 
-        '''TODO: this class should know something about the variables it is optimizing, I don't think it should
-        only be the geometry'''
+    def run(self):
+        ''' Inititalizes and then runs the optimization. '''
 
-    def run(self, verbose=True):
-        '''Inititalizes and then runs the optimization
-
-        :param verbose: Defines how verbose the optimization should be'''
-
-        self.verbose = verbose
         self.initialize()
         if self.plotter.movie:
             with self.plotter.writer.saving(self.plotter.fig, "optimization.mp4", 100):
-                self.optimizer.run(verbose)
+                self.optimizer.run()
 
         else:
-            self.optimizer.run(verbose)
+            self.optimizer.run()
 
         print('FINAL FOM = {}'.format(self.optimizer.fom_hist[-1]))
         print('FINAL PARAMETERS = {}'.format(self.optimizer.params_hist[-1]))
@@ -162,8 +144,7 @@ class Optimization(Super_Optimization):
 
         # For Modematch FOM the FOM must be initialized
         sim = self.make_sim()
-        if hasattr(self.fom,'initialize'):
-            self.fom.initialize(sim)
+        self.fom.initialize(sim)
 
         # The optimizer needs to know how to call the methods of this class to calculate the figures of merit
 
@@ -178,27 +159,28 @@ class Optimization(Super_Optimization):
         self.optimizer.initialize(start_params=start_params,callable_fom=callable_fom,callable_jac=callable_jac,bounds=bounds,plotting_function=plotting_function)
 
 
-
-
     def make_base_sim(self):
-        '''Creates the substrate simulation without the optimizable geometry'''
-        base_sim = Simulation(workingDir=self.workingDir,script=self.base_script)
-        return base_sim
+        ''' Creates the base simulation (without the optimizable geometry) using the provided script and saves the project
+            file in the specified working directiory. '''
 
-    def make_sim(self, geometry=None,put_monitors=True):
+        return Simulation(workingDir = self.workingDir, script = self.base_script)
+
+    def make_sim(self, geometry = None):
         '''Creates the forward simulation by adding the geometry to the base simulation and adding D monitors to any field monitor in the simulation.
         If the FOM object needs it's own monitors (or needs to manipulate those already present) they will also be added/manipulated.
 
         :param geometry: By default the current gometry of the Optimization #will be put in, but this can be overriden by inputing another geometry here
-        :param put_monitors: Whether or not the fom monitors should try to be added
 
         :returns: sim, Handle to the simulation '''
 
         # create the simulation object
         sim = self.make_base_sim()
-        #add_D_monitors_to_fields_monitors(sim.solver_handle, 'opt_fields')
         add_index_to_fields_monitors(sim.fdtd, 'opt_fields')
-        set_spatial_interp(sim.fdtd,'opt_fields','None')
+        sim.fdtd.setnamed('opt_fields', 'spatial interpolation', 'None')
+        if(self.use_deps):
+            enable_accurate_conformal_interface_detection(sim.fdtd)
+
+        time.sleep(0.1)
 
         # add the optimizable geometry
         if geometry is None:
@@ -207,14 +189,8 @@ class Optimization(Super_Optimization):
             geometry.add_geo(sim)
         # add the index monitors
 
-        sleep(0.1)
+        self.fom.add_to_sim(sim)
 
-        #remove_interpolation_on_monitor(sim.solver_handle,'opt_fields')
-        if put_monitors:
-            try:
-                self.fom.put_monitors(sim)
-            except:
-                pass #print('Could not add fom monitors')
         return sim
 
     def get_fom_geo(self, geometry=None):
@@ -243,14 +219,13 @@ class Optimization(Super_Optimization):
         to the fomHist
         '''
 
-        if self.verbose:
-            print('Running Forward Solves')
+        print('Running forward solves')
 
         # create the simulation
         forward_sim = self.make_sim()
 
         # run the simulation
-        forward_sim.run(name='forward',iter=self.iteration)
+        forward_sim.run(name = 'forward', iter = self.optimizer.iteration)
 
         # get the fields used for gradient calculation
         self.forward_fields = forward_sim.get_gradient_fields('opt_fields')
@@ -261,16 +236,15 @@ class Optimization(Super_Optimization):
 
         forward_sim.close()
 
-        if self.verbose:
-            print('FOM={}'.format(fom))
+        print('FOM = {}'.format(fom))
         return fom
 
     def run_adjoint_solves(self, plotfields=False):
         '''
         Generates the adjoint simulations, runs them and extacts the adjoint fields
         '''
-        if self.verbose:
-            print('Running adjoint Solves')
+
+        print('Running adjoint solves')
 
         adjoint_sim = self.make_sim()
 
@@ -278,27 +252,12 @@ class Optimization(Super_Optimization):
         adjoint_sim.remove_sources()
         self.fom.add_adjoint_sources(adjoint_sim)
 
-        adjoint_sim.run(name='adjoint',iter=self.iteration)
+        adjoint_sim.run(name = 'adjoint', iter = self.optimizer.iteration)
 
         self.adjoint_fields = adjoint_sim.get_gradient_fields('opt_fields')
+        self.adjoint_fields.scale(3, self.fom.get_adjoint_field_scaling(adjoint_sim))
         adjoint_sim.close()
 
-
-    def make_adjoint_solves(self, sleep_time=1000):
-        '''
-        Generates the adjoint simulations, moslty for testing
-        '''
-        if self.verbose:
-            print('Running adjoint Solves')
-
-        adjoint_sim = self.make_sim()
-
-        # Remove the forward sources and add the adjoint sources
-        adjoint_sim.remove_sources()
-        self.fom.add_adjoint_sources(adjoint_sim)
-
-        sleep(sleep_time)
-        return
 
     def callable_fom(self,params):
         '''A callable function for the optimizers for the figure of merit
@@ -320,130 +279,11 @@ class Optimization(Super_Optimization):
         gradients = self.calculate_gradients()
         return np.array(gradients)
 
-    from copy import deepcopy
-
-    def calculate_finite_differences_gradients_2(self, n_derivatives=range(4, 6), dx=0.01e-9, central=False, print_res=True,
-                                                 superverbose=False):
-
-        '''Calculates the finite difference gradients, and also compares the derivative to the gradients calculated using the adjoint
-        derivatives, as well as recalculated derivatives using the actual permittivity change seen in the simulation and extracted from the
-        index monitors'''
-
-        finite_differences_gradients = []
-        recalculated_adjoint_derivs = []
-        eps0 = 8.854e-12
-        params = np.array(self.geometry.get_current_params())
-        # if superverbose:print('Current parameters={}'.format(params))
-        self.run_forward_solves()
-        self.run_adjoint_solves()
-        adjoint_gradients=self.calculate_gradients(real=False)
-        print("Adjoint gradients= {}".format(adjoint_gradients))
-        current_fom = self.fomHist[-1]
-        current_eps = deepcopy(self.forward_fields.eps.copy())
-        current_E = deepcopy(self.forward_fields.E)
-        current_E_adj = deepcopy(self.adjoint_fields.E)
-        sparse_pert_E = 2*eps0*current_E*current_E_adj
-        if superverbose:
-            print('Nominal FOM = {}'.format(current_fom))
-        for i, param in zip(n_derivatives, params[n_derivatives]):
-            if not central:
-                # d_geo = copy.deepcopy(self.geometry)
-                d_params = params.copy()
-                d_params[i] = param + dx
-                # d_geo.update_geometry(d_params)
-                d_fom = self.callable_fom(d_params)
-                if superverbose: print('dfom={}'.format(d_fom))
-                deriv = (d_fom - current_fom)/dx
-                finite_differences_gradients.append(deriv)
-                d_eps = (self.forward_fields.eps - current_eps)/dx
-                plt.pcolormesh(np.real(d_eps[:, :, 0, 0, 2]).transpose())
-                plt.show()
-                recalculated_adjoint_deriv = trapz3D(np.sum(sparse_pert_E*d_eps,axis=-1)[:,:,:,0],self.forward_fields.x,self.forward_fields.y,self.forward_fields.z)
-                print('recalculated adjoint gradients={}'.format(recalculated_adjoint_deriv))
-                recalculated_adjoint_derivs.append(recalculated_adjoint_deriv)
-            else:
-                print('central not supported on this on yet')
-
-            if print_res: print('Derivative n {}={}'.format(i, deriv))
-        self.geometry.update_geometry(params)
-
-        if print_res:
-            print(finite_differences_gradients)
-            print(recalculated_adjoint_derivs)
-
-        return finite_differences_gradients, recalculated_adjoint_derivs,adjoint_gradients
-
-    def calculate_finite_differences_gradients(self, n_derivatives=range(4,6), dx=3e-9,central=True,print_res=True,superverbose=False):
-        '''Calculates the derivatives using finite differences. This should be only used to verify the gradients
-
-        :param n_derivatives: The number of derivatives that should be calculated (on to two simulations per derivative)
-        :param dx: The finite step for derivative calculation
-        :param central: Should a central finite difference scheme be used?
-        :param print_res: guess :)
-
-        :returns: finite_difference_gradients'''
-
-        if self.geometry.self_update:
-            finite_differences_gradients = self.geometry.calculate_finite_differences_gradients()
-        else:
-            finite_differences_gradients = []
-            try: #If the geometry knows how to get it's own finite differences
-                finite_differences_geometries = self.geometry.get_geometries_for_finite_differences_gradients(dx=dx)
-                current_fom = self.get_fom_geo(self.geometry)
-                for i, geometry in enumerate(finite_differences_geometries[:n_derivatives]):
-                    fomdx = self.get_fom_geo(geometry)
-                    deriv=(fomdx - current_fom)/dx
-                    finite_differences_gradients.append(deriv)
-                    if print_res: print('derivative n {}={}'.format(i, deriv))
-            except:
-                params=np.array(self.geometry.get_current_params())
-                # if superverbose:print('Current parameters={}'.format(params))
-                if not central or superverbose:
-                    current_fom = self.get_fom_geo(self.geometry)
-                    if superverbose:
-                        print('Nominal FOM = {}'.format(current_fom))
-                for i,param in zip(n_derivatives,params[n_derivatives]):
-                    if not central:
-                        # d_geo = copy.deepcopy(self.geometry)
-                        d_params = params.copy()
-                        d_params[i] = param + dx
-                        # d_geo.update_geometry(d_params)
-                        d_fom = self.callable_fom(d_params)
-                        if superverbose: print('dfom={}'.format(d_fom))
-                        deriv = (d_fom - current_fom)/dx
-                        finite_differences_gradients.append(deriv)
-                    else:
-                        # d_geo_pos=copy.deepcopy(self.geometry)
-                        # d_geo_neg=copy.deepcopy(self.geometry)
-                        d_params_pos=params.copy()
-                        d_params_neg=params.copy()
-                        d_params_pos[i]=param+dx
-                        d_params_neg[i]=param-dx
-                        # d_geo_pos.update_geometry(d_params_pos)
-                        # d_geo_neg.update_geometry(d_params_neg)
-                        print('getting + '),
-                        d_fom_pos=self.callable_fom(d_params_pos)
-                        if superverbose: print('dfom + ={}'.format(d_fom_pos))
-                        print('getting - '),
-                        d_fom_neg=self.callable_fom(d_params_neg)
-                        if superverbose: print('dfom + ={}'.format(d_fom_neg))
-                        deriv=(d_fom_pos-d_fom_neg)/dx/2.
-                        finite_differences_gradients.append(deriv)
-                        # if superverbose: print('Current parameters={}'.format(self.geometry.get_current_params()))
-                    if print_res: print('Derivative n {}={}'.format(i,deriv))
-                self.geometry.update_geometry(params)
-
-        if print_res:
-            print(finite_differences_gradients)
-
-        return finite_differences_gradients
-
-
     def calculate_gradients(self,real=True):
         '''Uses the forward and adjoint fields to calculate the derivatives to the optimization parameters
             Assumes the forward and adjoint solves have been run'''
-        if self.verbose:
-            print('Calculating Gradients')
+
+        print('Calculating gradients')
 
         # Create the gradient fields
         self.gradient_fields = Gradient_fields(forward_fields=self.forward_fields, adjoint_fields=self.adjoint_fields)
@@ -453,71 +293,22 @@ class Optimization(Super_Optimization):
             self.gradients = self.geometry.calculate_gradients(self.gradient_fields, self.fom.wavelengths,real=real)
         else:
             self.gradients = self.geometry.calculate_gradients_from_sims_eps(self.gradient_fields,real=real)
-
-
         return self.gradients
 
-    def goto_new_sims_folder(self):
-        '''Creates a new folder in the current working directory name opt_xx where xx can go up to 25 (an error is given if it goes above)
-         This folder will store all the simulations of the optimization.'''
+    @staticmethod
+    def goto_new_opts_folder(calling_file_name, base_script):
+        ''' Creates a new folder in the current working directory named opt_xx to store the project files of the
+            various simulations run during the optimization. Backup copiesof the calling and base scripts are 
+            placed in the new folder.'''
 
-        ## THIS IS A TERRIBLE THING BUT FOR THE MOMENT I'LL USE IT
-        # It's to copy the file that created the optimizer, which is probably a good chunk of the info to recreate it
-        import inspect
-        try:
-            def get_caller(num):
-                return inspect.stack()[num]  # 1 is get_caller's caller
-            calling_file= os.path.abspath(inspect.getfile(get_caller(3)[0]))
-        except:
-            print('Couldnt copy python setupfile')
-
-
-        directories = os.listdir(os.getcwd())
-        try:
-            old = max([int(x.split('_')[-1]) for x in directories if x.startswith('opts_')])
-        except ValueError:  # in case there is no opts_ directories at all
-            old = - 1
-
-        if old == 25:
-            print('Too many optimization folders in {}'.format(os.getcwd()))
-            raise ValueError
-
-        new_dir_name = 'opts_{}'.format(old + 1)
-        os.mkdir(new_dir_name)
-        os.chdir(new_dir_name)
-
-        #copy the python file that create the optimization
-        try:
-            from shutil import copy2
-            copy2(calling_file,os.getcwd())
-        except:
-            pass
-
-        #create a file with the script
+        calling_file_path = os.path.dirname(calling_file_name) if os.path.isfile(calling_file_name) else os.path.dirname(os.getcwd())
+        calling_file_path_entries = os.listdir(calling_file_path)
+        opts_dir_numbers = [int(entry.split('_')[-1]) for entry in calling_file_path_entries if entry.startswith('opts_')]
+        opts_dir_numbers.append(-1)
+        new_opts_dir = os.path.join(calling_file_path, 'opts_{}'.format(max(opts_dir_numbers) + 1))
+        os.mkdir(new_opts_dir)
+        os.chdir(new_opts_dir)
+        if os.path.isfile(calling_file_name):
+            shutil.copy(calling_file_name, new_opts_dir)
         with open('script_file.lsf','a') as file:
-            file.write(self.base_script.replace(';',';\n'))
-
-
-
-if __name__=='__main__':
-    import numpy as np
-    from lumopt.geometries.polygon import function_defined_Polygon, cross
-    from lumopt.optimizers.generic_optimizers import ScipyOptimizers
-    from lumopt.figures_of_merit.modematch import ModeMatch
-    from lumopt.utilities.load_lumerical_scripts import load_from_lsf
-    import os
-    import matplotlib.pyplot as plt
-    from lumopt import CONFIG
-
-    base_script = load_from_lsf(os.path.join(CONFIG['root'], 'examples/crossing/crossing_base_TE_modematch_2D.lsf'))
-
-    fom = ModeMatch(modeorder=2)
-    optimizer = ScipyOptimizers(max_iter=20)
-    # optimizer=FixedStepGradientDescent(max_dx=20e-9,max_iter=100)
-    bounds = [(0.2e-6, 1e-6)]*10
-    geometry = function_defined_Polygon(func=cross, initial_params=np.linspace(0.25e-6, 0.6e-6, 10), eps_out='SiO2 (Glass) - Palik',
-                                        eps_in=2.8**2, bounds=bounds, depth=220e-9, edge_precision=5)
-
-    opt = Optimization(base_script=base_script, fom=fom, geometry=geometry, optimizer=optimizer)
-
-    opt.run()
+            file.write(base_script.replace(';',';\n'))
