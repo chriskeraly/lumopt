@@ -1,18 +1,12 @@
-'''Deals with fields'''
-
-
-
-import matplotlib as mpl
- #mpl.use('TkAgg')
-
-import matplotlib.pyplot as plt
+""" Copyright chriskeraly
+    Copyright (c) 2019 Lumerical Inc. """
 
 import numpy as np
+import scipy as sp
 from lumopt.utilities.scipy_wrappers import wrapped_GridInterpolator
 from lumopt.utilities.scipy_wrappers import trapz3D
-
-eps0=8.854187e-12
-
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
 class Fields(object):
     '''This object is created from fields loaded from Lumerical m=field monitors. Several iterpolation objects are then created internally to
@@ -53,7 +47,6 @@ class Fields(object):
             self.getHfield=self.make_field_interpolation_object(self.H)
         self.evals=0
 
-
     def make_field_interpolation_object(self,F):
 
         Fx_interpolator=wrapped_GridInterpolator((self.x,self.y,self.z,self.wl),F[:,:,:,:,0],method='linear')
@@ -68,156 +61,6 @@ class Fields(object):
             return np.array((Fx,Fy,Fz)).squeeze() #TODO: fix this! This squeeze is a mistery when matlab is used as midman...
 
         return field_interpolator
-
-
-    def calculate_pointing_vect(self):
-        '''Calculates the pointing vector and creates an array of it'''
-        if self.E is None or self.H is None:
-            return ValueError('Either E or H data is missing in the field, cannot calculate pointing vector')
-
-
-        pointing_vect=np.zeros(self.E.shape,dtype=np.complex_)
-
-        pointing_vect[:,:,:,:,0]=np.multiply(self.E[:,:,:,:,1],np.conj(self.H[:,:,:,:,2]))-np.multiply(self.E[:,:,:,:,2],np.conj(self.H[:,:,:,:,1]))
-        pointing_vect[:,:,:,:,1]=np.multiply(self.E[:,:,:,:,2],np.conj(self.H[:,:,:,:,0]))-np.multiply(self.E[:,:,:,:,0],np.conj(self.H[:,:,:,:,2]))
-        pointing_vect[:,:,:,:,2]=np.multiply(self.E[:,:,:,:,0],np.conj(self.H[:,:,:,:,1]))-np.multiply(self.E[:,:,:,:,1],np.conj(self.H[:,:,:,:,0]))
-
-        self.pointing_vect=pointing_vect
-
-        return self.pointing_vect
-
-    def calculate_power(self):
-        '''Calculates the pointing Vector integral of a field for a linear or 2D field monitor, to figure out how much
-        power is flowing trought the monitor'''
-
-        self.calculate_pointing_vect()
-        if len(self.x) == 1:
-            normal = [1, 0, 0]
-        elif len(self.y) == 1:
-            normal = [0, 1, 0]
-        elif len(self.z) == 1:  # Test for z last so that 2D simulations make sense
-            normal = [0, 0, 1]
-        else:
-            raise ValueError('Cant normalize power in a volume')
-
-        power = np.zeros(np.shape(self.wl))
-        for i, wl in enumerate(self.wl):
-            if normal == [1, 0, 0]:
-                integrand = self.pointing_vect[:, :, :, i, 0]
-            elif normal == [0, 1, 0]:
-                integrand = self.pointing_vect[:, :, :, i, 1]
-            else:
-                integrand = self.pointing_vect[:, :, :, i, 2]
-            power[i] = np.real(0.5*trapz3D(integrand, self.x, self.y, self.z))
-
-        return power
-
-    def normalize_to_power(self,power):
-
-        '''Normalizes the fields wrt an input power'''
-
-        for i, wl in enumerate(self.wl):
-            self.E[:, :, :, i, :] = self.E[:, :, :, i, :]/np.sqrt(np.abs(power[i]))
-            self.H[:, :, :, i, :] = self.H[:, :, :, i, :]/np.sqrt(np.abs(power[i]))
-            try:
-                self.D[:, :, :, i, :] = self.D[:, :, :, i, :]/np.sqrt(np.abs(power[i]))
-            except:
-                pass
-
-        self.getfield = self.make_field_interpolation_object(self.E)
-        if not self.eps is None:
-            self.geteps = self.make_field_interpolation_object(self.eps)
-        if not self.D is None:
-            self.getDfield = self.make_field_interpolation_object(self.D)
-        if not self.H is None:
-            self.getHfield = self.make_field_interpolation_object(self.H)
-
-        self.normalized = True
-
-    def normalize_power(self,plot=False):
-
-        ''''This is primarily if one wants to do mode overlaps.
-        It normalizeds the power travelling in the mode through a plane, at every wavelength
-        '''
-        power=self.calculate_power()
-        self.normalize_to_power(power)
-        if plot:
-            self.plot(H=True)
-
-
-
-    def calculate_overlap(self,other_field,remove_E=False,remove_H=False):
-        '''Calculates the mode overlap with another field. This assumes this mode has been normalized'''
-        if not self.normalized:
-            self.normalize_power()
-            print('Normalized the mode being modematched to')
-
-        if not (len(self.x)==len(other_field.x) and len(self.y)==len(other_field.y) and len(self.z)==len(other_field.z) and len(self.wl)==len(other_field.wl)):
-            raise ValueError('Fields are not on same grid, (or not the same amount of wavelengths Modematch does not support this (write a method!!)')
-
-        #TODO: MULTIPLE WAVELENGTGHS
-
-        integrand = np.zeros(self.E.shape, dtype=np.complex_)
-
-        # TODO: E x H calculation is terribly ugly, there has got to be a better way
-
-        if remove_H and remove_E:
-            raise ValueError('Cant remove_E and remove_H')
-
-        # E x H calculation:
-        if remove_E:
-            integrand[:, :, :, :, 0] = np.multiply(np.conj(self.E[:, :, :, :, 1]), other_field.H[:, :, :, :, 2]) - np.multiply(
-                np.conj(self.E[:, :, :, :, 2]), other_field.H[:, :, :, :, 1])
-            integrand[:, :, :, :, 1] = np.multiply(np.conj(self.E[:, :, :, :, 2]), other_field.H[:, :, :, :, 0]) - np.multiply(
-                np.conj(self.E[:, :, :, :, 0]), other_field.H[:, :, :, :, 2])
-            integrand[:, :, :, :, 2] = np.multiply(np.conj(self.E[:, :, :, :, 0]), other_field.H[:, :, :, :, 1]) - np.multiply(
-                np.conj(self.E[:, :, :, :, 1]), other_field.H[:, :, :, :, 0])
-            integrand=integrand*2
-        elif remove_H:
-            integrand[:, :, :, :, 0] = np.multiply(other_field.E[:, :, :, :, 1], np.conj(self.H[:, :, :, :, 2])) - np.multiply(
-                other_field.E[:, :, :, :, 2], np.conj(self.H[:, :, :, :, 1]))
-            integrand[:, :, :, :, 1] = np.multiply(other_field.E[:, :, :, :, 2], np.conj(self.H[:, :, :, :, 0])) - np.multiply(
-                other_field.E[:, :, :, :, 0], np.conj(self.H[:, :, :, :, 2]))
-            integrand[:, :, :, :, 2] = np.multiply(other_field.E[:, :, :, :, 0], np.conj(self.H[:, :, :, :, 1])) - np.multiply(
-                other_field.E[:, :, :, :, 1], np.conj(self.H[:, :, :, :, 0]))
-            integrand = integrand*2
-        else:
-            integrand[:, :, :, :, 0] = np.multiply(np.conj(self.E[:, :, :, :, 1]), other_field.H[:, :, :, :, 2]) - np.multiply(
-                np.conj(self.E[:, :, :, :, 2]), other_field.H[:, :, :, :, 1])+np.multiply(other_field.E[:, :, :, :, 1], np.conj(self.H[:, :, :, :, 2])) - np.multiply(
-                other_field.E[:, :, :, :, 2], np.conj(self.H[:, :, :, :, 1]))
-            integrand[:, :, :, :, 1] = np.multiply(np.conj(self.E[:, :, :, :, 2]), other_field.H[:, :, :, :, 0]) - np.multiply(
-                np.conj(self.E[:, :, :, :, 0]), other_field.H[:, :, :, :, 2])+np.multiply(other_field.E[:, :, :, :, 2], np.conj(self.H[:, :, :, :, 0])) - np.multiply(
-                other_field.E[:, :, :, :, 0], np.conj(self.H[:, :, :, :, 2]))
-            integrand[:, :, :, :, 2] = np.multiply(np.conj(self.E[:, :, :, :, 0]), other_field.H[:, :, :, :, 1]) - np.multiply(
-                np.conj(self.E[:, :, :, :, 1]), other_field.H[:, :, :, :, 0])+np.multiply(other_field.E[:, :, :, :, 0], np.conj(self.H[:, :, :, :, 1])) - np.multiply(
-                other_field.E[:, :, :, :, 1], np.conj(self.H[:, :, :, :, 0]))
-
-        if len(self.x) == 1:
-            normal = [1, 0, 0]
-        elif len(self.y) == 1:
-            normal = [0, 1, 0]
-        elif len(self.z) == 1:  # Test for z last so that 2D simulations make sense
-            normal = [0, 0, 1]
-
-        power = np.zeros(np.shape(self.wl))
-        amplitude_prefactors = np.zeros(np.shape(self.wl),dtype=complex)
-        #TODO Rename amplitude prefactor to something correct
-
-        for i, wl in enumerate(self.wl):
-            if normal == [1, 0, 0]:
-                integrand = integrand[:, :, :, i, 0]
-            elif normal == [0, 1, 0]:
-                integrand = integrand[:, :, :, i, 1]
-            else:
-                integrand = integrand[:, :, :, i, 2]
-            amplitude_prefactor=trapz3D(integrand, self.x, self.y, self.z)
-            power[i] = np.abs(amplitude_prefactor)**2/16 # The factor of 16 is different from eq 7.5 of Keraly et al. but with the mode normalization it should be ok
-            if remove_E or remove_H: amplitude_prefactor=amplitude_prefactor*2 #not sure why, could have to do with the import H
-            amplitude_prefactors[i]=amplitude_prefactor/16 # for the phase of injection in the adjoint sim
-        return power,amplitude_prefactors
-
-
-
 
     def plot(self,ax,title,cmap):
         '''Plots E^2 for the plotter'''
@@ -235,7 +78,6 @@ class Fields(object):
         ax.set_xlabel('x (um)')
         ax.set_ylabel('y (um)')
 
-
     def plot_full(self,D=False,E=True,eps=False,H=False,wl=1550e-9,original_grid=True):
         '''Plot the different fields'''
 
@@ -247,7 +89,6 @@ class Fields(object):
             self.plot_field(self.geteps, original_grid=original_grid, wl=wl, name='eps')
         if H:
             self.plot_field(self.getHfield, original_grid=original_grid, wl=wl, name='H')
-
 
     def plot_field(self,field_func=None,original_grid=True,wl=1550e-9,name='field'):
         if field_func is None:
@@ -296,27 +137,19 @@ class FieldsNoInterp(Fields):
 
     def __init__(self,x,y, z, wl, deltas, E ,D, eps, H):
 
-        def process_input(input):
-            if type(input) is float:
-                input = np.array([input])
-            else:
-                input = input.squeeze()
-            if input.shape == ():
-                input = np.array([input])
-            return input
+        delta_x = deltas[0]
+        delta_y = deltas[1]
+        delta_z = deltas[2]
 
-        delta_x=deltas[0]
-        delta_y=deltas[1]
-        delta_z=deltas[2]
+        process_array_shape = lambda input: np.array([input]) if np.isscalar(input) or not any(input.shape) else input.flatten()
+        x, y, z, wl, delta_x, delta_y, delta_z = map(process_array_shape, [x, y, z, wl, delta_x, delta_y, delta_z])
 
-        x, y, z, wl ,delta_x,delta_y,delta_z= map(process_input, [x, y, z, wl,delta_x,delta_y,delta_z])
-
-        deltas=[delta_x,delta_y,delta_z]
+        deltas = [delta_x, delta_y, delta_z]
 
         self.x = x
         self.y = y
         self.z = z
-        self.deltas=deltas
+        self.deltas = deltas
         self.E = E
         self.D = D
         self.H = H
@@ -326,27 +159,26 @@ class FieldsNoInterp(Fields):
         self.normalized = False
 
         self.getfield = self.make_field_interpolation_object_nointerp(self.E)
-        if not eps is None:
+        if isinstance(self.eps, np.ndarray):
             self.geteps = self.make_field_interpolation_object_nointerp(self.eps)
-        if not D is None:
+        if isinstance(self.D, np.ndarray):
             self.getDfield = self.make_field_interpolation_object_nointerp(self.D)
-        if not H is None:
+        if isinstance(self.H, np.ndarray):
             self.getHfield = self.make_field_interpolation_object(self.H)
         self.evals = 0
 
     def make_field_interpolation_object_nointerp(self,F):
 
-        Fx_interpolator = wrapped_GridInterpolator((self.x+self.deltas[0], self.y, self.z, self.wl), F[:, :, :, :, 0], method='linear',bounds_error=False)
-        Fy_interpolator = wrapped_GridInterpolator((self.x, self.y+self.deltas[1], self.z, self.wl), F[:, :, :, :, 1], method='linear',bounds_error=False)
-        Fz_interpolator = wrapped_GridInterpolator((self.x, self.y, self.z+self.deltas[2], self.wl), F[:, :, :, :, 2], method='linear',bounds_error=False)
+        Fx_interpolator = wrapped_GridInterpolator((self.x + self.deltas[0], self.y, self.z, self.wl), np.take(F, indices = 0, axis = 4), method = 'linear', bounds_error = False)
+        Fy_interpolator = wrapped_GridInterpolator((self.x, self.y + self.deltas[1], self.z, self.wl), np.take(F, indices = 1, axis = 4), method = 'linear', bounds_error = False)
+        Fz_interpolator = wrapped_GridInterpolator((self.x, self.y, self.z + self.deltas[2], self.wl), np.take(F, indices = 2, axis = 4), method = 'linear', bounds_error = False)
 
         def field_interpolator(x, y, z, wl):
             Fx = Fx_interpolator((x, y, z, wl))
             Fy = Fy_interpolator((x, y, z, wl))
             Fz = Fz_interpolator((x, y, z, wl))
 
-            return np.array(
-                (Fx, Fy, Fz)).squeeze()  # TODO: fix this! This squeeze is a mistery when matlab is used as midman...
+            return np.array((Fx, Fy, Fz)).squeeze()
 
         return field_interpolator
 
@@ -366,7 +198,28 @@ class FieldsNoInterp(Fields):
         ax.set_xlabel('x (um)')
         ax.set_ylabel('y (um)')
 
+    def scale(self, dimension, factors):
+        """ Scales the E, D and H field arrays along the specified dimension using the provided weighting factors.
 
-if __name__=='__main__':
-    from examples.Ysplitter.make_sim import make_sim
-    sim=make_sim()
+            :dimension: 0 (x-axis), 1 (y-axis), 2 (z-axis), (3) frequency and (4) vector component.
+            :factors:   list or vector of weighting factors of the same size as the target field dimension.
+        """
+
+        if hasattr(self.E, 'dtype'):
+            if self.E.shape[dimension] == len(factors):
+                self.E = np.concatenate([np.take(self.E, [index], axis = dimension) * factors[index] for index in range(self.E.shape[dimension])], axis = dimension)
+                self.getfield = self.make_field_interpolation_object_nointerp(self.E)
+            else:
+                raise UserWarning('number of factors must match the target E-field dimension.')
+        if hasattr(self.D, 'dtype'):
+            if self.D.shape[dimension] == len(factors):
+                self.D = np.concatenate([np.take(self.D, [index], axis = dimension) * factors[index] for index in range(self.D.shape[dimension])], axis = dimension)
+                self.getDfield = self.make_field_interpolation_object_nointerp(self.D)
+            else:
+                raise UserWarning('number of factors must match the target D-field dimension.')
+        if hasattr(self.H, 'dtype'):
+            if self.H.shape[dimension] == len(factors):
+                self.H = np.concatenate([np.take(self.H, [index], axis = dimension) * factors[index] for index in range(self.H.shape[dimension])], axis = dimension)
+                self.getHfield = self.make_field_interpolation_object(self.H)
+            else:
+                raise UserWarning('number of factors must match the target H-field dimension.')

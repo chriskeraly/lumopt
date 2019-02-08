@@ -1,3 +1,6 @@
+""" Copyright chriskeraly
+    Copyright (c) 2019 Lumerical Inc. """
+
 import numpy as np
 from lumopt.utilities.scipy_wrappers import trapz1D,trapz3D,trapz2D
 
@@ -31,7 +34,7 @@ class Edge(object):
         else:
             return self.derivative_3D(gradient_fields,wl,n_points=n_points,real=real)
 
-    def derivative_3D(self,gradient_fields,wl,n_points,real=True):
+    def derivative_3D(self, gradient_fields, wl, n_points, real):
         '''Calculates the derivative of an extruded polygon in a 3D simulation by integrating over several layers. The
         layers follow the mesh grid'''
 
@@ -43,7 +46,7 @@ class Edge(object):
         z_in_between=z_vect_sim[(z_vect_sim>z_min) & (z_vect_sim<z_max)]
         z_s = np.array([z_min] + list(z_in_between) + [z_max])
 
-        edge_derivative_layers=[self.derivative_2D(gradient_fields,wl,n_points,z_override=z,real=real) for z in z_s]
+        edge_derivative_layers = [self.derivative_2D(gradient_fields, wl, n_points, real) for z in z_s]
         deriv_first_integrand=[elem[0] for elem in edge_derivative_layers]
         deriv_second_integrand=[elem[1] for elem in edge_derivative_layers]
 
@@ -52,22 +55,17 @@ class Edge(object):
 
         return [deriv_first,deriv_second]
 
-    def derivative_2D(self,gradient_fields,wl,n_points,z_override=None,real=True):
+    def derivative_2D(self, gradient_fields, wl, n_points, real):
         '''Calculates the derivative for moving the two extremity points of an edge in a direction normal to the edge for a
         2D simulation.'''
         #TODO:Maybe this should be done with a dx rather than a number of points? if one could check the mesh size the choice could be automatic rather
         #than rely on the user
 
-        integration_points=[self.first_point*i+self.second_point*(1-i) for i in np.linspace(1,0,n_points)]
+        integration_points = [self.first_point * i + self.second_point*(1 - i) for i in np.linspace(1, 0, n_points)]
 
-        integrand=gradient_fields.boundary_perturbation_integrand(real=real)
+        integrand = gradient_fields.boundary_perturbation_integrand(real)
 
-        if z_override is None:
-            z=self.z
-        else:
-            z=z_override
-
-        integrand_points=[integrand(point[0],point[1],z,wl,self.normal,self.eps_in.get_eps(wl),self.eps_out.get_eps(wl)) for point in integration_points]
+        integrand_points=[integrand(point[0], point[1], self.z, wl, self.normal, self.eps_in.get_eps(wl), self.eps_out.get_eps(wl)) for point in integration_points]
 
         #calculate derivative for first point:
 
