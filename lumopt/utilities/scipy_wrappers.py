@@ -1,3 +1,6 @@
+""" Copyright chriskeraly
+    Copyright (c) 2019 Lumerical Inc. """
+
 from scipy.interpolate import RegularGridInterpolator
 import numpy as np
 
@@ -23,7 +26,6 @@ def trapz2D(vals,x,y):
 
     return trapz1D(temp,y)
 
-
 def trapz3D( vals,x, y,z,):
     '''3D trapz methods, which is OK with one dimensional values'''
 
@@ -43,20 +45,6 @@ def trapz3D( vals,x, y,z,):
         temp.append(trapz2D(vals[:,:,i],x,y))
 
     return trapz1D(temp, z)
-
-
-def dblsimps(func,x_min,x_max,y_min,y_max,points_per_dimension=1):
-    '''Integrates a function over a square, using only a few sample points'''
-    if points_per_dimension==1:
-        return (x_max-x_min)*(y_max-y_min)*func((x_max+x_min)/2,(y_max+y_min)/2)
-    else:
-        x_array = np.linspace(x_min, x_max, points_per_dimension)
-        y_array = np.linspace(y_min, y_max, points_per_dimension)
-    z=np.array([func(x,y) for x in x_array for y in y_array])
-    z=z.reshape(points_per_dimension,points_per_dimension)
-
-    return simps(simps(z, y_array), x_array)
-
 
 def wrapped_GridInterpolator(points, values, method='linear', bounds_error=True, fill_value=float('nan')):
     '''This is a wrapper around Scipy's RegularGridInterpolator so that it can deal with entries of 1 dimension
@@ -138,33 +126,3 @@ def wrapped_GridInterpolator(points, values, method='linear', bounds_error=True,
             return newvalues
 
     return wrapped_interpolator
-
-def demo_interpolator():
-    points = (np.array([3, 4]), np.array([1, 2]),np.array([5]))
-    vals = np.array([10,11,12,13]).reshape(2,2,1)
-
-    print(vals.shape)
-    wi=wrapped_GridInterpolator(points,vals)
-
-    print(wi((3.5,1.5,5)))
-    print(wi((3.5, 1, 5)))
-    print(wi([(3.5,1.5,5),(3.5,1,5)]))
-
-    points=(np.array([1]),np.array([2]))
-    vals=np.array([5]).reshape(1,1)
-
-    wi = wrapped_GridInterpolator(points, vals)
-
-    print(wi((1, 2)))
-
-    ti=RegularGridInterpolator(points,vals)
-    try:
-        print(ti((3.5,1.5,5)))
-    except:
-        print('It didnt work for the regular interpolator!')
-
-if __name__=='__main__':
-    demo_interpolator()
-    import os
-    print(os.getcwd())
-    print(dblsimps(lambda x, y:x * y, 0, 10, -2, 2,points_per_dimension=3))

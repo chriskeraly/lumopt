@@ -65,8 +65,7 @@ set('y span',2e-6);
 set('x',-2.25e-6);
 set('z',0);
 set('z span',1e-6);
-set('center wavelength',1550e-9);
-set('wavelength span',0);
+set('override global source settings',false);
 set('mode selection','fundamental TE mode');
 
 #FDTD

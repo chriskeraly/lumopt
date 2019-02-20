@@ -168,19 +168,32 @@ class FieldsNoInterp(Fields):
         self.evals = 0
 
     def make_field_interpolation_object_nointerp(self,F):
+        if( (F.shape[3]==1) and (len(self.wl) > 1) ):
+            Fx_interpolator = wrapped_GridInterpolator((self.x + self.deltas[0], self.y, self.z, self.wl[0]), np.take(F, indices = [0], axis = 4), method = 'linear', bounds_error = False)
+            Fy_interpolator = wrapped_GridInterpolator((self.x, self.y + self.deltas[1], self.z, self.wl[0]), np.take(F, indices = [1], axis = 4), method = 'linear', bounds_error = False)
+            Fz_interpolator = wrapped_GridInterpolator((self.x, self.y, self.z + self.deltas[2], self.wl[0]), np.take(F, indices = [2], axis = 4), method = 'linear', bounds_error = False)
 
-        Fx_interpolator = wrapped_GridInterpolator((self.x + self.deltas[0], self.y, self.z, self.wl), np.take(F, indices = 0, axis = 4), method = 'linear', bounds_error = False)
-        Fy_interpolator = wrapped_GridInterpolator((self.x, self.y + self.deltas[1], self.z, self.wl), np.take(F, indices = 1, axis = 4), method = 'linear', bounds_error = False)
-        Fz_interpolator = wrapped_GridInterpolator((self.x, self.y, self.z + self.deltas[2], self.wl), np.take(F, indices = 2, axis = 4), method = 'linear', bounds_error = False)
+            def field_interpolator(x, y, z, wl):
+                Fx = Fx_interpolator((x, y, z, wl))
+                Fy = Fy_interpolator((x, y, z, wl))
+                Fz = Fz_interpolator((x, y, z, wl))
 
-        def field_interpolator(x, y, z, wl):
-            Fx = Fx_interpolator((x, y, z, wl))
-            Fy = Fy_interpolator((x, y, z, wl))
-            Fz = Fz_interpolator((x, y, z, wl))
+                return np.array((Fx, Fy, Fz)).squeeze()
 
-            return np.array((Fx, Fy, Fz)).squeeze()
+            return field_interpolator
+        else:
+            Fx_interpolator = wrapped_GridInterpolator((self.x + self.deltas[0], self.y, self.z, self.wl), np.take(F, indices = [0], axis = 4), method = 'linear', bounds_error = False)
+            Fy_interpolator = wrapped_GridInterpolator((self.x, self.y + self.deltas[1], self.z, self.wl), np.take(F, indices = [1], axis = 4), method = 'linear', bounds_error = False)
+            Fz_interpolator = wrapped_GridInterpolator((self.x, self.y, self.z + self.deltas[2], self.wl), np.take(F, indices = [2], axis = 4), method = 'linear', bounds_error = False)
 
-        return field_interpolator
+            def field_interpolator(x, y, z, wl):
+                Fx = Fx_interpolator((x, y, z, wl))
+                Fy = Fy_interpolator((x, y, z, wl))
+                Fz = Fz_interpolator((x, y, z, wl))
+
+                return np.array((Fx, Fy, Fz)).squeeze()
+
+            return field_interpolator
 
     def plot(self,ax,title,cmap):
         '''Plots E^2 for the plotter'''

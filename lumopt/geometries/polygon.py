@@ -39,24 +39,16 @@ class Polygon(Geometry):
     self_update=False
 
     def __init__(self,points, z, depth, eps_out, eps_in, edge_precision, bounds, dx):
-        #given properties
         self.points=points
         self.z=z
         self.depth=depth
-        #self.index=np.sqrt(eps_in)
         self.gradients=[]
         self.edge_precision=edge_precision
         self.dx=dx
-        if type(eps_out) is Material:
-            self.eps_out=eps_out
-        else:
-            self.eps_out=Material(eps_out)
-        if type(eps_in) is Material:
-            self.eps_in = eps_in
-        else:
-            self.eps_in = Material(eps_in)
+        self.eps_out = eps_out if isinstance(eps_out, Material) else Material(eps_out)
+        self.eps_in = eps_in if isinstance(eps_in, Material) else Material(eps_in)
         self.make_edges()
-        self.hash=random.getrandbits(128)
+        self.hash = random.getrandbits(64)
         return
 
     def make_edges(self):
@@ -68,35 +60,29 @@ class Polygon(Geometry):
         self.edges=edges
 
 
-    def calculate_gradients(self,gradient_fields,wavelength,real=True):
+    def calculate_gradients(self, gradient_fields):
         ''' We calculate gradients with respect to moving each point in x or y direction '''
-
         self.make_edges()
         print('Calculating gradients for {} edges'.format(len(self.edges)))
         gradient_pairs_edges=[]
         for edge in self.edges:
-            gradient_pairs_edges.append(edge.derivative(gradient_fields,wavelength,n_points=self.edge_precision,real=real))
+            gradient_pairs_edges.append(edge.derivative(gradient_fields, n_points = self.edge_precision))
             sys.stdout.write('.')
         print('')
         #the gradients returned for an edge derivative are the gradients with respect to moving each end point perpendicular to that edge
         #This is not exactly what we are looking for here, since we want the derivative w/ respect to moving each point
         #in the x or y direction, so coming up is a lot of projections...
 
-        gradients=[]
-
+        gradients = list()
         for i,point in enumerate(self.points):
-
-            deriv_edge_1=gradient_pairs_edges[i][1]
-            normal_edge_1=self.edges[i].normal
-            deriv_edge_2=gradient_pairs_edges[(i+1)%len(self.edges)][0]
-            normal_edge_2=self.edges[(i+1)%len(self.edges)].normal
-
-            deriv_x=np.dot(deriv_edge_1*normal_edge_1+deriv_edge_2*normal_edge_2,[1,0,0])
-            deriv_y=np.dot(deriv_edge_1*normal_edge_1+deriv_edge_2*normal_edge_2,[0,1,0])
-
+            deriv_edge_1 = gradient_pairs_edges[i][1]
+            normal_edge_1 = self.edges[i].normal
+            deriv_edge_2 = gradient_pairs_edges[(i+1)%len(self.edges)][0]
+            normal_edge_2 = self.edges[(i+1)%len(self.edges)].normal
+            deriv_x = np.dot([1,0,0], np.outer(normal_edge_1, deriv_edge_1).squeeze() + np.outer(normal_edge_2, deriv_edge_2).squeeze())
+            deriv_y = np.dot([0,1,0], np.outer(normal_edge_1, deriv_edge_1).squeeze() + np.outer(normal_edge_2, deriv_edge_2).squeeze())
             gradients.append(deriv_x)
             gradients.append(deriv_y)
-
         self.gradients.append(gradients)
         return self.gradients[-1]
 
@@ -108,38 +94,27 @@ class Polygon(Geometry):
         '''returns the points coordinates linearly '''
         return np.reshape(self.points,(-1)).copy()
 
-    def initialize(self,wavelengths,opt):
-        self.eps_in.initialize(wavelengths)
-        self.eps_out.initialize(wavelengths)
-        self.opt=opt
-
-    def add_geo(self, sim, params=None):
+    def add_geo(self, sim, params = None):
         ''' Adds the geometry to a Lumerical simulation'''
-
-        fdtd = sim.fdtd
 
         if params is None:
             points = self.points
         else:
             points = np.reshape(params, (-1, 2))
-        fdtd.putv('vertices', points)
-
-        script = ("addpoly;" +
-                  "set('name','polygon_{0}');" +
-                  "set('z',{1});" +
-                  "set('x',0);" +
-                  "set('y',0);" +
-                  "set('z span',{2});" +
-                  "set('vertices',vertices);" +
-                  "{3}").format(self.hash, self.z, self.depth, self.eps_in.set_script())
-        fdtd.eval(script)
-
-    def update_geo_in_sim(self,sim,params):
-        points = np.reshape(params, (-1, 2))
+        sim.fdtd.addpoly()
+        poly_name = 'polygon_{0}'.format(self.hash)
+        sim.fdtd.set('name', poly_name)
+        sim.fdtd.set('x', 0.0)
+        sim.fdtd.set('y', 0.0)
+        sim.fdtd.set('z', self.z)
+        sim.fdtd.set('z span', self.depth)
         sim.fdtd.putv('vertices', points)
-        script = ("select('polygon_{0}');" +
-                  "set('vertices',vertices);").format(self.hash)
-        sim.fdtd.eval(script)
+        self.eps_in.set_script(sim, poly_name)
+
+    def update_geo_in_sim(self, sim, params):
+        points = np.reshape(params, (-1, 2))
+        sim.fdtd.select('polygon_{}'.format(self.hash))
+        sim.fdtd.set('vertices', points)
 
     def plot(self,ax):
         points=self.points.copy()
@@ -191,14 +166,8 @@ class FunctionDefinedPolygon(Polygon):
         self.edge_precision=edge_precision
         self.bounds=bounds
         self.params_hist=[initial_params]
-        if type(eps_out) is Material:
-            self.eps_out=eps_out
-        else:
-            self.eps_out=Material(eps_out)
-        if type(eps_in) is Material:
-            self.eps_in = eps_in
-        else:
-            self.eps_in = Material(eps_in)
+        self.eps_out = eps_out if isinstance(eps_out, Material) else Material(eps_out)
+        self.eps_in = eps_in if isinstance(eps_in, Material) else Material(eps_in)
         self.make_edges()
         self.dx=dx
         self.hash = random.getrandbits(128)
@@ -208,58 +177,41 @@ class FunctionDefinedPolygon(Polygon):
         self.current_params=params
         self.params_hist.append(params)
 
-
     def get_current_params(self):
         return self.current_params
 
-    def calculate_gradients(self, gradient_fields, wavelengths,real=True):
-
-        wavelength=wavelengths[0] #TODO THIS IS NOT DEALING WITH MULTIPLE WAVELENGTHS
-        polygon_gradients = np.array(
-            super(FunctionDefinedPolygon, self).calculate_gradients(gradient_fields, wavelength,real=real))
-
+    def calculate_gradients(self, gradient_fields):
+        polygon_gradients = np.array(Polygon.calculate_gradients(self, gradient_fields))
         polygon_points_linear = self.func(self.current_params).reshape(-1)
-        dx = 1e-11
-        gradients = []
+        gradients = list()
         for i, param in enumerate(self.current_params):
             d_params = np.array(self.current_params.copy())
-            d_params[i] += dx
+            d_params[i] += self.dx
             d_polygon_points_linear = self.func(d_params).reshape(-1)
-            partial_derivs = (d_polygon_points_linear - polygon_points_linear)/dx
-            gradients.append(sum(partial_derivs*polygon_gradients))
-
+            partial_derivs = (d_polygon_points_linear - polygon_points_linear) / self.dx
+            gradients.append(np.dot(partial_derivs, polygon_gradients))
         self.gradients.append(gradients)
+        return np.array(self.gradients[-1])
 
-        return self.gradients[-1]
-
-    def add_poly_script(self,points,only_update=False):
-        vertices_string = np.array2string(points,max_line_width=10e10,floatmode='unique',separator=',').replace(',\n',';')
+    def add_poly_script(self, sim, points, only_update):
+        poly_name = 'polygon_{}'.format(self.hash)
         if not only_update:
-            script = (  "addpoly;"
-                      + "set('name','polygon_{0}');" ).format(self.hash)
-        else:
-            script = "select('polygon_{0}');".format(self.hash)
+            sim.fdtd.addpoly()
+            sim.fdtd.set('name', poly_name)
+        sim.fdtd.setnamed(poly_name, 'x', 0.0)
+        sim.fdtd.setnamed(poly_name, 'y', 0.0)
+        sim.fdtd.setnamed(poly_name, 'z', self.z)
+        sim.fdtd.setnamed(poly_name, 'z span', self.depth)
+        sim.fdtd.setnamed(poly_name, 'vertices', points)
+        self.eps_in.set_script(sim, poly_name)
 
-        script += (  "set('z',{1});"
-                   + "set('x',0);"
-                   + "set('y',0);"
-                   + "set('z span',{2});"
-                   + "set('vertices',{3});"
-                   + "{4}" ).format(self.hash, self.z, self.depth,vertices_string, self.eps_in.set_script())
-        return script
-
-    def add_geo(self, sim, params=None,eval=True,only_update=False):
+    def add_geo(self, sim, params, only_update):
         ''' Adds the geometry to a Lumerical simulation'''
-        fdtd = sim.fdtd
         if params is None:
             points = self.points
         else:
             points = self.func(params)
+        self.add_poly_script(sim, points, only_update)
 
-        script=self.add_poly_script(points,only_update)
-        if eval:
-            fdtd.eval(script)
-        return script
-
-    def update_geo_in_sim(self, sim, params, eval=False):
-        return self.add_geo(sim,params,eval,only_update=True)
+    def update_geo_in_sim(self, sim, params):
+        self.add_geo(sim, params, only_update = True)

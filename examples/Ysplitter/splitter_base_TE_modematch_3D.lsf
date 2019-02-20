@@ -3,111 +3,119 @@ selectall;
 delete;
 
 ###SIM PARAMS
-size_x=3e-6;
-size_y=2.5e-6;
-size_z=1.2e-6;
-mesh_x=20e-9;
-mesh_y=20e-9;
-mesh_z=20e-9;
-finer_mesh_size=3e-6;
-finer_mesh_size_z=0.6e-6;
+size_x = 3.0e-6;
+size_y = 3.0e-6;
+size_z = 1.0e-6;
+mesh_x = 25.0e-9;
+mesh_y = mesh_x;
+mesh_z = mesh_x;
+finer_mesh_size_x = 2.5e-6;
+finer_mesh_size_y = 2.5e-6;
+finer_mesh_size_z = 0.6e-6;
+background_index = 1.44;
+mesh_accuracy = 1;
 
 ##GEOMETRY
+wg_width = 0.5e-6;
+wg_length = 3.0e-6;
+wg_height = 220.0e-9;
+wg_material = 'Si (Silicon) - Palik';
+wg_ref_index = 1.0;
 
 #INPUT WAVEGUIDE
-
 addrect;
 set('name','input wg');
-set('x span',3e-6);
-set('y span',0.5e-6);
-set('z span',220e-9);
-set('y',0);
 set('x',-2.5e-6);
+set('x span',wg_length);
+set('y',0.0);
+set('y span',wg_width);
+set('z',0.0);
+set('z span',wg_height);
+set('index',wg_ref_index);
 set('material','Si (Silicon) - Palik');
-
 
 ##OUTPUT WAVEGUIDES
-
 addrect;
 set('name','output wg top');
-set('x span',3e-6);
-set('y span',0.5e-6);
-set('z span',220e-9);
-set('y',0.35e-6);
 set('x',2.5e-6);
+set('x span',wg_length);
+set('y',0.35e-6);
+set('y span',wg_width);
+set('z',0.0);
+set('z span',wg_height);
+set('index',wg_ref_index);
 set('material','Si (Silicon) - Palik');
-
-
 addrect;
 set('name','output wg bottom');
-set('x span',3e-6);
-set('y span',0.5e-6);
-set('z span',220e-9);
-set('y',-0.35e-6);
 set('x',2.5e-6);
+set('x span',wg_length);
+set('y',-0.35e-6);
+set('y span',wg_width);
+set('z',0.0);
+set('z span',wg_height);
+set('index',wg_ref_index);
 set('material','Si (Silicon) - Palik');
-
 
 #SOURCE
 addmode;
 set('direction','Forward');
 set('injection axis','x-axis');
-#set('polarization angle',0);
-set('y',0);
-set('y span',2e-6);
 set('x',-1.25e-6);
-set('z',0);
-set('z span',1e-6);
-set('center wavelength',1550e-9);
-set('wavelength span',0);
+set('y',0.0);
+set('y span',finer_mesh_size_y);
+set('z',0.0);
+set('z span',finer_mesh_size_z);
+set('override global source settings',false);
 set('mode selection','fundamental TE mode');
 
 #FDTD
 addfdtd;
 set('dimension','3D');
-set('background index',1.44);
-set('mesh accuracy',4);
-set('x min',-size_x/2);
-set('x max',size_x/2);
-set('y min',-size_y/2);
-set('y max',size_y/2);
-set('z min',-size_z/2);
-set('z max',size_z/2);
-set('force symmetric y mesh',1);
-set('force symmetric z mesh',1);
-#set('z min bc','Symmetric');
-#set('y min bc','Anti-Symmetric');
+set('background index',background_index);
+set('mesh accuracy',mesh_accuracy);
+set('x min',-size_x/2.0);
+set('x max',size_x/2.0);
+set('y min',-size_y/2.0);
+set('y max',size_y/2.0);
+set('z min',-size_z/2.0);
+set('z max',size_z/2.0);
+set('force symmetric y mesh',true);
+set('force symmetric z mesh',true);
 
+## MESH IN OPTIMIZABLE REGION
 addmesh;
-set('x',0);
-set('x span',finer_mesh_size);
-set('y',0);
-set('y span',finer_mesh_size);
-set('z',0);
+set('directly defined',true);
+set('x',0.0);
+set('x span',finer_mesh_size_x);
+set('y',0.0);
+set('y span',finer_mesh_size_y);
+set('z',0.0);
 set('z span',finer_mesh_size_z);
+set('set maximum mesh step',true);
+set('override x mesh',true);
 set('dx',mesh_x);
+set('override y mesh',true);
 set('dy',mesh_y);
-set('dx',mesh_z);
+set('override z mesh',true);
+set('dz',mesh_z);
 
 #Optimization fields
 addpower;
 set('name','opt_fields');
 set('monitor type','3D');
-set('x min',-size_x/2);
-set('x max',1.1e-6);
-set('y min',-size_y/2);
-set('y max',size_y/2);
-set('z min',-0.4e-6);
-set('z max',0.4e-6);
-
+set('x',0.0);
+set('x span',finer_mesh_size_x);
+set('y',0.0);
+set('y span',finer_mesh_size_y);
+set('z',0.0);
+set('z span',finer_mesh_size_z);
 
 #FOM FIELDS
-
 addpower;
 set('name','fom');
 set('monitor type','2D X-normal');
 set('x',1.26e-6);
-set('y min',-1e-6);
-set('y max',1e-6);
-set('z min',-0.5e-6);
-set('z max',0.5e-6);
+set('y',0.0);
+set('y span',finer_mesh_size_y);
+set('z',0.0);
+set('z span',finer_mesh_size_z);

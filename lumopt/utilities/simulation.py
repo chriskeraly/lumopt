@@ -12,17 +12,14 @@ class Simulation(object):
     Class that handles making and running simulations
     '''
 
-    def __init__(self,workingDir,script=''):
+    def __init__(self, workingDir, script, hide_fdtd_cad):
         '''
         :param workingDir: Working directory to save the simulation before running it
         :param script: (String) Base Lumerical script to execute when making the simulation
         '''
-        self.script=script
-        self.workingDir=workingDir
-        self.fdtd=lumapi.FDTD()
+        self.fdtd = lumapi.FDTD(hide = hide_fdtd_cad)
         self.fdtd.cd(workingDir)
         self.fdtd.eval(script)
-
 
     def run(self,name='forward',iter=None):
         '''
@@ -39,7 +36,6 @@ class Simulation(object):
     def get_gradient_fields(self,monitor_name):
         '''Extracts the fields in the optimizable region. These fields are needed to create the gradient fields'''
         return ls.get_fields(self.fdtd, monitor_name, get_eps = True, get_D = True, get_H = False, nointerpolation = True)
-
 
     def remove_sources(self):
         '''Removes all the sources present in a simulation. Is used to create the basis for the adjoint simulation.

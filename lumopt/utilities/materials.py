@@ -1,78 +1,61 @@
 """ Copyright chriskeraly
     Copyright (c) 2019 Lumerical Inc. """
 
-from lumopt import CONFIG
-import sys
-import lumapi
 import numpy as np
+import scipy as sp
+import scipy.constants
+
+from lumopt.utilities.wavelengths import Wavelengths
 
 class Material(object):
-    ''' A Material is important because it is what contains the information about the permittivity of the material,
-     which is needed to calculate shape derivatives.
+    ''' Permittivity of a material associated with a geometric primitive.
 
-     A material can be given in two ways:
-      - a float representing the permittivity
-      - a string representing the name of a material present in Lumerical's material database (eg 'Si (Silicon) - Palik')
+        In FDTD Solutions, a material can be given in two ways:
 
-      In the latter case, before an optimization is launched, the material properties at the wavelengths at which the figure
-      of merit is defined will have to be extracted from the simulation in the initialization routine.
+            1) By providing a material name from the material database (e.g. 'Si (Silicon) - Palik') that can be assigned to a geometric primitive.
+            2) By providing a refractive index value directly in geometric primitive.
 
-      :param material: A string (such as "Si (Silicon) - Palik") or a float that represents the material permittivity (3.4**2 for Silicon for example)
+        To use the first option, simply set the name to '<Object defined dielectric>' and enter the desired base permittivity value.
+        To use the second option, set the name to the desired material name and the base permittivity to none.
+
+        :name:         string (such as "Si (Silicon) - Palik") with a valid material name.
+        :base_epsilon: scalar base permittivity value.
+        :mesh_order:   order of material resolution for overlapping primitives.
       '''
-      # TODO: extend to multiple wavelengths
 
+    object_dielectric = str('<Object defined dielectric>')
 
-    def __init__(self,material='Si (Silicon) - Palik',mesh_order=None):
+    def __init__(self, base_epsilon = 1.0, name = object_dielectric, mesh_order = None):
+        self.base_epsilon = float(base_epsilon)
+        self.name = str(name)
+        self.mesh_order = mesh_order
 
-        self.material=material
-        self.permittivities=None
-        self.mesh_order=mesh_order
-
-    def initialize(self, wavelengths=[1550e-9]):
-        '''Puts permittivities in self.permittivities using the appropriate method'''
-
-        if type(self.material) is str:
-            self.permittivities = self.get_lumerical_permitivities(wavelengths)
+    def set_script(self, sim, poly_name):
+        sim.fdtd.setnamed(poly_name, 'material', self.name)
+        self.wavelengths = Material.get_wavelengths(sim)
+        freq_array = sp.constants.speed_of_light / self.wavelengths.asarray()
+        if self.name == self.object_dielectric:
+            refractive_index = np.sqrt(self.base_epsilon)
+            sim.fdtd.setnamed(poly_name, 'index', float(refractive_index))
+            self.permittivity = self.base_epsilon * np.ones(freq_array.shape)
         else:
-            self.permittivities =self.material
+            fdtd_index = sim.fdtd.getfdtdindex(self.name, freq_array, float(freq_array.min()), float(freq_array.max()))
+            self.permittivity = np.asarray(np.power(fdtd_index, 2)).flatten()
+        if self.mesh_order:
+            sim.fdtd.setnamed(poly_name, 'override mesh order from material database', True)
+            sim.fdtd.setnamed(poly_name, 'mesh order', self.mesh_order)
 
-        self.wavelengths=np.array(wavelengths).squeeze()
-
-
-    def get_lumerical_permitivities(self,wavelengths=[1550e-9]):
-        '''Fetches the index from Lumerical if a string was given as the input for the object, and squares it to get
-        the permittivity'''
-
-        handle=lumapi.open('fdtd')
-        lumapi.putMatrix(handle,'wavelengths',np.array(wavelengths))
-        lumapi.evalScript(handle,'permittivities=getindex("{}",c/wavelengths);'.format(self.material))
-        indexes= lumapi.getVar(handle,'permittivities')
-        lumapi.close(handle)
-        permittivities=np.array(indexes)**2
-        return permittivities.squeeze()
-
-    def set_script(self):
-        '''Script to set the material in Lumerical'''
-
-        if type(self.material) is str:
-            script= "set('material','{}');".format(self.material)
-
+    def get_eps(self, wavelengths):
+        if hasattr(self, 'permittivity'):
+            assert len(wavelengths) == len(self.wavelengths) # should be identical
+            return self.permittivity
+        elif self.name == self.object_dielectric:
+            return self.base_epsilon * np.ones(wavelengths.shape)
         else:
-            script="set('index', {});".format(np.sqrt(self.permittivities))
+            raise UserWarning('material has not yet been assigned to a geometric primitive.')
 
-        if not self.mesh_order is None:
-            script+="set('override mesh order from material database',1);set('mesh order', {});".format(self.mesh_order)
-
-        return script
-
-    def get_eps(self,wl):
-        '''
-
-        :param wl: wavelength at which to get permittivity
-        :return: interpolated permittivity
-        '''
-
-        if self.wavelengths.size==1:
-            return self.permittivities
-        else:
-            return np.interp(wl,self.wavelengths,self.permittivities)
+    @staticmethod
+    def get_wavelengths(sim):
+        return Wavelengths(sim.fdtd.getglobalsource('wavelength start'), 
+                           sim.fdtd.getglobalsource('wavelength stop'),
+                           sim.fdtd.getglobalmonitor('frequency points'))

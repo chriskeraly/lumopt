@@ -3,33 +3,23 @@ selectall;
 delete;
 
 ## SIM PARAMS
-size_x=10e-6;
+size_x=3e-6;
 size_y=3e-6;
 mesh_x=20e-9;
 mesh_y=20e-9;
-separation=500e-9;
-finer_mesh_size=size_x+0.5e-6;
+finer_mesh_size=2.5e-6;
 
 ## GEOMETRY
 
 #INPUT WAVEGUIDE
 
 addrect;
-set('name','input wg bot');
+set('name','input wg');
 set('x span',3e-6);
 set('y span',0.5e-6);
 set('z span',220e-9);
-set('y',-0.25e-6-separation/2);
-set('x',-1e-6);
-set('index',2.8);
-
-addrect;
-set('name','input wg top');
-set('x span',3e-6);
-set('y span',0.5e-6);
-set('z span',220e-9);
-set('y',0.25e-6+separation/2);
-set('x',-1e-6);
+set('y',0);
+set('x',-2.5e-6);
 set('index',2.8);
 
 #OUTPUT WAVEGUIDES
@@ -39,8 +29,8 @@ set('name','output wg top');
 set('x span',3e-6);
 set('y span',0.5e-6);
 set('z span',220e-9);
-set('y',0.25e-6+separation/2);
-set('x',size_x+1e-6);
+set('y',0.35e-6);
+set('x',2.5e-6);
 set('index',2.8);
 
 addrect;
@@ -48,8 +38,8 @@ set('name','output wg bottom');
 set('x span',3e-6);
 set('y span',0.5e-6);
 set('z span',220e-9);
-set('y',-0.25e-6-separation/2);
-set('x',size_x+1e-6);
+set('y',-0.35e-6);
+set('x',2.5e-6);
 set('index',2.8);
 
 ## SOURCE
@@ -57,9 +47,8 @@ addmode;
 set('direction','Forward');
 set('injection axis','x-axis');
 #set('polarization angle',0);
-set('x',0.25e-6);
-set('y max',0);
-set('y min',-1e-6);
+set('y',0);
+set('x',-1.25e-6);
 set('override global source settings',false);
 set('mode selection','fundamental TE mode');
 
@@ -68,15 +57,15 @@ addfdtd;
 set('dimension','2D');
 set('background index',1.44);
 set('mesh accuracy',4);
-set('x min',0);
-set('x max',size_x);
+set('x min',-size_x/2);
+set('x max',size_x/2);
 set('y min',-size_y/2);
 set('y max',size_y/2);
 set('force symmetric y mesh',1);
 
 ## MESH IN OPTIMIZABLE REGION
 addmesh;
-set('x',size_x/2);
+set('x',0);
 set('x span',finer_mesh_size);
 set('y',0);
 set('y span',finer_mesh_size);
@@ -87,23 +76,16 @@ set('dy',mesh_y);
 addpower;
 set('name','opt_fields');
 set('monitor type','2D Z-normal');
-set('x min',0);
-set('x max',size_x);
+set('x min',-size_x/2);
+set('x max',1.1e-6);
 set('y min',-size_y/2);
 set('y max',size_y/2);
 
 ## FOM FIELDS
 
 addpower;
-set('name','fom_1550');
+set('name','fom');
 set('monitor type','2D X-normal');
-set('x',size_x-0.25e-6);
-set('y min',0e-6);
-set('y max',1e-6);
-
-addpower;
-set('name','fom_1310');
-set('monitor type','2D X-normal');
-set('x',size_x-0.25e-6);
+set('x',1.25e-6);
 set('y min',-1e-6);
-set('y max',0e-6);
+set('y max',1e-6);

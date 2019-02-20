@@ -6,14 +6,6 @@ import scipy as sp
 import scipy.constants
 from lumopt.utilities.fields import Fields, FieldsNoInterp
 
-def enable_accurate_conformal_interface_detection(fdtd):
-    fdtd.select('FDTD')
-    has_legacy_prop = bool(fdtd.haveproperty('use legacy conformal interface detection'))
-    if has_legacy_prop:
-        fdtd.setnamed('FDTD', 'use legacy conformal interface detection', False)
-        fdtd.setnamed('FDTD', 'conformal meshing refinement', 51)
-    else:
-        raise UserWarning('install a more recent version of FDTD or the permittivity derivatives will not be accurate.')
 
 def get_fields_no_interp(fdtd, monitor_name, get_eps, get_D, get_H):
     '''This function fetches fields from a monitor.
@@ -75,47 +67,3 @@ def get_fields(fdtd, monitor_name, get_eps, get_D, get_H, nointerpolation):
         return get_fields_no_interp(fdtd, monitor_name, get_eps, get_D, get_H)
     else:
         return get_fields_interp(fdtd, monitor_name, get_eps, get_D, get_H)
-
-def copy_properties(fdtd, origin, destination, properties):
-    for prop_name in properties:
-        prop_val = fdtd.getnamed(origin, prop_name)
-        fdtd.setnamed(destination, prop_name, prop_val)
-
-def get_eps_from_sim(fdtd, monitor_name = 'opt_fields'):
-    index_monitor_name = monitor_name + '_index'
-    nn = fdtd.getresult(index_monitor_name, 'index')
-    fields_eps_x = np.power(nn['index_x'], 2)
-    fields_eps_y = np.power(nn['index_y'], 2)
-    fields_eps_z = np.power(nn['index_z'], 2)
-    fields_eps = np.stack((fields_eps_x, fields_eps_y, fields_eps_z), axis = -1)
-    return fields_eps, nn['x'], nn['y'], nn['z']
-
-def add_index_to_fields_monitors(fdtd, monitor_name):
-    index_monitor_name = monitor_name + '_index'
-    fdtd.addindex()
-    fdtd.set('name', index_monitor_name)
-    monitor_type = fdtd.getnamed(monitor_name, 'monitor type')
-    geometric_props = ['monitor type']
-    geometric_props.extend(cross_section_monitor_props(monitor_type))
-    copy_properties(fdtd,monitor_name, index_monitor_name, geometric_props)
-    fdtd.setnamed(index_monitor_name, 'spatial interpolation', 'None')
-
-def cross_section_monitor_props(monitor_type):
-    geometric_props = ['x', 'y', 'z']
-    if monitor_type == '3D':
-        geometric_props.extend(['x span','y span','z span'])
-    elif monitor_type == '2D X-normal':
-        geometric_props.extend(['y span','z span'])
-    elif monitor_type == '2D Y-normal':
-        geometric_props.extend(['x span','z span'])
-    elif monitor_type == '2D Z-normal':
-        geometric_props.extend(['x span','y span'])
-    elif monitor_type == 'Linear X':
-        geometric_props.append('x span')
-    elif monitor_type == 'Linear Y':
-        geometric_props.append('y span')
-    elif monitor_type == 'Linear Z':
-        geometric_props.append('z span')
-    else:
-        raise UserWarning('monitor should be 2D or linear for a mode expansion to be meaningful.')
-    return geometric_props

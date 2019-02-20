@@ -6,9 +6,9 @@
 import os
 import numpy as np
 import scipy as sp
-from lumopt import CONFIG
 
 from lumopt.utilities.load_lumerical_scripts import load_from_lsf
+from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.geometries.polygon import FunctionDefinedPolygon
 from lumopt.figures_of_merit.modematch import ModeMatch
 from lumopt.optimizers.generic_optimizers import ScipyOptimizers
@@ -16,8 +16,12 @@ from lumopt.optimization import Optimization
 
 ######## DEFINE BASE SIMULATION ########
 # Use the same script for both simulations, but it's just to keep the example simple. You could use two.
-script_1550 = load_from_lsf(os.path.join(CONFIG['root'], 'examples/WDM_splitter/WDM_splitter_base_TE_1550.lsf'))
-script_1310 = load_from_lsf(os.path.join(CONFIG['root'], 'examples/WDM_splitter/WDM_splitter_base_TE_1550.lsf')).replace('1550e-9','1310e-9')
+script_1550 = load_from_lsf(os.path.join(os.path.dirname(__file__), 'WDM_splitter_base_TE_1550.lsf'))
+script_1310 = load_from_lsf(os.path.join(os.path.dirname(__file__), 'WDM_splitter_base_TE_1550.lsf')).replace('1550e-9','1310e-9')
+
+######## DEFINE SPECTRAL RANGE #########
+wavelengths_1551 = Wavelengths(start = 1550e-9, stop = 1550e-9, points = 1)
+wavelengths_1310 = Wavelengths(start = 1310e-9, stop = 1310e-9, points = 1)
 
 ######## DEFINE OPTIMIZABLE GEOMETRY ########
 separation = 500.0e-9
@@ -49,27 +53,27 @@ def upper_coupler_arm(params, n_points = 10):
 
 bounds = [(-0.25e-6, 0.25e-6)]*10
 initial_params = np.linspace(0,0.24e-6,10)
-geometry_1550_lower = FunctionDefinedPolygon(func = lower_coupler_arm, initial_params = initial_params, bounds = bounds, z = 0.0, depth = 220e-9, eps_out = 1.44 ** 2, eps_in = 2.8 ** 2, edge_precision = 5, dx = 0.01e-9)
-geometry_1550_upper = FunctionDefinedPolygon(func = upper_coupler_arm, initial_params = initial_params, bounds = bounds, z = 0.0, depth = 220e-9, eps_out = 1.44 ** 2, eps_in = 2.8 ** 2, edge_precision = 5, dx = 0.01e-9)
+geometry_1550_lower = FunctionDefinedPolygon(func = lower_coupler_arm, initial_params = initial_params, bounds = bounds, z = 0.0, depth = 220e-9, eps_out = 1.44 ** 2, eps_in = 2.8 ** 2, edge_precision = 5, dx = 0.1e-9)
+geometry_1550_upper = FunctionDefinedPolygon(func = upper_coupler_arm, initial_params = initial_params, bounds = bounds, z = 0.0, depth = 220e-9, eps_out = 1.44 ** 2, eps_in = 2.8 ** 2, edge_precision = 5, dx = 0.1e-9)
 geometry_1550 = geometry_1550_lower * geometry_1550_upper
-geometry_1310_lower = FunctionDefinedPolygon(func = lower_coupler_arm, initial_params = initial_params, bounds = bounds, z = 0.0, depth = 220e-9, eps_out = 1.44 ** 2, eps_in = 2.8 ** 2, edge_precision = 5, dx = 0.01e-9)
-geometry_1310_upper = FunctionDefinedPolygon(func = upper_coupler_arm, initial_params = initial_params, bounds = bounds, z = 0.0, depth = 220e-9, eps_out = 1.44 ** 2, eps_in = 2.8 ** 2, edge_precision = 5, dx = 0.01e-9)
+geometry_1310_lower = FunctionDefinedPolygon(func = lower_coupler_arm, initial_params = initial_params, bounds = bounds, z = 0.0, depth = 220e-9, eps_out = 1.44 ** 2, eps_in = 2.8 ** 2, edge_precision = 5, dx = 0.1e-9)
+geometry_1310_upper = FunctionDefinedPolygon(func = upper_coupler_arm, initial_params = initial_params, bounds = bounds, z = 0.0, depth = 220e-9, eps_out = 1.44 ** 2, eps_in = 2.8 ** 2, edge_precision = 5, dx = 0.1e-9)
 geometry_1310 = geometry_1310_lower * geometry_1310_upper
 
 ######## DEFINE FIGURE OF MERIT ########
 # Although we are optimizing for the same thing, two separate fom objects must be created.
 
-fom_1550 = ModeMatch(monitor_name = 'fom_1550', wavelengths = 1550e-9, mode_number = 2, direction = 'Forward')
-fom_1310 = ModeMatch(monitor_name = 'fom_1310', wavelengths = 1310e-9, mode_number = 2, direction = 'Forward')
+fom_1550 = ModeMatch(monitor_name = 'fom_1550', mode_number = 2, direction = 'Forward', target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1)
+fom_1310 = ModeMatch(monitor_name = 'fom_1310', mode_number = 2, direction = 'Forward', target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1)
 
 ######## DEFINE OPTIMIZATION ALGORITHM ########
 #For the optimizer, they should all be set the same, but different objects. Eventually this will be improved
-optimizer_1550 = ScipyOptimizers(max_iter = 40)
-optimizer_1310 = ScipyOptimizers(max_iter = 40)
+optimizer_1550 = ScipyOptimizers(max_iter = 40, method = 'L-BFGS-B', scaling_factor = 1e6, pgtol = 1e-9)
+optimizer_1310 = ScipyOptimizers(max_iter = 40, method = 'L-BFGS-B', scaling_factor = 1e6, pgtol = 1e-9)
 
 ######## PUT EVERYTHING TOGETHER ########
-opt_1550 = Optimization(base_script = script_1550, fom = fom_1550, geometry = geometry_1550, optimizer = optimizer_1550)
-opt_1310 = Optimization(base_script = script_1310, fom = fom_1310, geometry = geometry_1310, optimizer = optimizer_1310)
+opt_1550 = Optimization(base_script = script_1550, wavelengths = wavelengths_1551, fom = fom_1550, geometry = geometry_1550, optimizer = optimizer_1550, hide_fdtd_cad = False, use_deps = True)
+opt_1310 = Optimization(base_script = script_1310, wavelengths = wavelengths_1310, fom = fom_1310, geometry = geometry_1310, optimizer = optimizer_1310, hide_fdtd_cad = False, use_deps = True)
 opt = opt_1550 + opt_1310
 
 ######## RUN THE OPTIMIZER ########

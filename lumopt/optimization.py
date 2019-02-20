@@ -6,15 +6,15 @@ import time
 import shutil
 import inspect
 import copy
-from copy import deepcopy
 import numpy as np
 import matplotlib.pyplot as plt
 
+from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.utilities.simulation import Simulation
-from lumopt.utilities.gradients import Gradient_fields
+from lumopt.utilities.gradients import GradientFields
+from lumopt.figures_of_merit.modematch import ModeMatch
 from lumopt.utilities.plotter import Plotter
 from lumopt.utilities.scipy_wrappers import trapz3D
-from lumopt.lumerical_methods.lumerical_scripts import add_index_to_fields_monitors, enable_accurate_conformal_interface_detection
 
 class Super_Optimization(object):
     ''' Optimization base class which allows the user to use the addition operator to co-optimize two figures of merit
@@ -35,7 +35,6 @@ class Super_Optimization(object):
         self.optimizer = copy.deepcopy(self.optimizations[0].optimizer)
         self.plotter=self.optimizations[0].plotter
 
-        # First
         for optimization in self.optimizations:
             optimization.initialize()
 
@@ -64,8 +63,6 @@ class Super_Optimization(object):
 
 
     def run(self):
-        ''' Inititalizes and then runs the optimization. '''
-
         self.initialize()
         if self.plotter.movie:
             with self.plotter.writer.saving(self.plotter.fig, "optimization.mp4", 100):
@@ -90,16 +87,19 @@ class Optimization(Super_Optimization):
         :fom:         figure of merit object (see class ModeMatch).
         :geometry:    optimizable geometry (see class FunctionDefinedPolygon).
         :optimizer:   SciyPy minimizer wrapper (see class ScipyOptimizers).
+        :use_deps:    use the numerical derivatives provided by FDTD.
     """
 
-    def __init__(self, base_script, fom, geometry, optimizer, use_deps = True):
+    def __init__(self, base_script, wavelengths, fom, geometry, optimizer, hide_fdtd_cad = False, use_deps = True):
 
         self.base_script = base_script
+        self.wavelengths = wavelengths if isinstance(wavelengths, Wavelengths) else Wavelengths(wavelengths)
         self.fom = fom
         self.geometry = geometry
         self.optimizer = optimizer
-        self.use_deps = use_deps
-        if use_deps:
+        self.hide_fdtd_cad = bool(hide_fdtd_cad)
+        self.use_deps = bool(use_deps)
+        if self.use_deps:
             print("Accurate interface detection enabled")
 
         self.plotter = Plotter()
@@ -116,54 +116,25 @@ class Optimization(Super_Optimization):
         self.workingDir = os.getcwd()
 
     def run(self):
-        ''' Inititalizes and then runs the optimization. '''
-
         self.initialize()
         if self.plotter.movie:
             with self.plotter.writer.saving(self.plotter.fig, "optimization.mp4", 100):
                 self.optimizer.run()
-
         else:
             self.optimizer.run()
-
         print('FINAL FOM = {}'.format(self.optimizer.fom_hist[-1]))
         print('FINAL PARAMETERS = {}'.format(self.optimizer.params_hist[-1]))
         return self.optimizer.fom_hist[-1],self.optimizer.params_hist[-1]
 
 
     def initialize(self):
-        '''Before the optimization can be run, usually a few things needs to be initialized.
-
-            - The FOM passes the wavelengths at which the optimization is done to the geomtry, which needs to know, in order to calculate the gradients
-            - In some case the fom needs to extract some information from the base simulation before being fully defined (a mode for example)
-            - The geometry passes the starting parameters to the optimizer'''
-
-        # The Materials in the geometries have to be initilized at the wavelengths of interest
-        wavelengths=self.fom.get_wavelengths()
-        self.geometry.initialize(wavelengths,self)
-
-        # For Modematch FOM the FOM must be initialized
-        sim = self.make_sim()
-        self.fom.initialize(sim)
-
-        # The optimizer needs to know how to call the methods of this class to calculate the figures of merit
-
         start_params = self.geometry.get_current_params()
         callable_fom = self.callable_fom
         callable_jac = self.callable_jac
         bounds = np.array(self.geometry.bounds)
-
         def plotting_function():
             self.plotter.update(self)
-
         self.optimizer.initialize(start_params=start_params,callable_fom=callable_fom,callable_jac=callable_jac,bounds=bounds,plotting_function=plotting_function)
-
-
-    def make_base_sim(self):
-        ''' Creates the base simulation (without the optimizable geometry) using the provided script and saves the project
-            file in the specified working directiory. '''
-
-        return Simulation(workingDir = self.workingDir, script = self.base_script)
 
     def make_sim(self, geometry = None):
         '''Creates the forward simulation by adding the geometry to the base simulation and adding D monitors to any field monitor in the simulation.
@@ -174,21 +145,23 @@ class Optimization(Super_Optimization):
         :returns: sim, Handle to the simulation '''
 
         # create the simulation object
-        sim = self.make_base_sim()
-        add_index_to_fields_monitors(sim.fdtd, 'opt_fields')
-        sim.fdtd.setnamed('opt_fields', 'spatial interpolation', 'None')
+        sim = Simulation(self.workingDir, self.base_script, self.hide_fdtd_cad)
+        Optimization.set_global_wavelength(sim, self.wavelengths)
+        Optimization.set_source_wavelength(sim, 'source', len(self.wavelengths))
+        sim.fdtd.setnamed('opt_fields', 'override global monitor settings', False)
+        sim.fdtd.setnamed('opt_fields', 'spatial interpolation', 'none')
+        Optimization.add_index_monitor(sim, 'opt_fields')
         if(self.use_deps):
-            enable_accurate_conformal_interface_detection(sim.fdtd)
+            Optimization.set_use_legacy_conformal_interface_detection(sim, False)
 
         time.sleep(0.1)
 
         # add the optimizable geometry
         if geometry is None:
-            self.geometry.add_geo(sim)
+            self.geometry.add_geo(sim, params = None, only_update = False)
         else:
             geometry.add_geo(sim)
         # add the index monitors
-
         self.fom.add_to_sim(sim)
 
         return sim
@@ -279,20 +252,23 @@ class Optimization(Super_Optimization):
         gradients = self.calculate_gradients()
         return np.array(gradients)
 
-    def calculate_gradients(self,real=True):
-        '''Uses the forward and adjoint fields to calculate the derivatives to the optimization parameters
-            Assumes the forward and adjoint solves have been run'''
+    def calculate_gradients(self):
+        ''' Calculates the gradient of the figure of merit (FOM) with respect to each of the optimization parameters.
+            It assumes that both the forward and adjoint solves have been run so that all the necessary field results
+            have been collected.'''
 
         print('Calculating gradients')
-
-        # Create the gradient fields
-        self.gradient_fields = Gradient_fields(forward_fields=self.forward_fields, adjoint_fields=self.adjoint_fields)
-
-        'Let the geometry calculate the actual gradients'
-        if not self.use_deps:
-            self.gradients = self.geometry.calculate_gradients(self.gradient_fields, self.fom.wavelengths,real=real)
+        self.gradient_fields = GradientFields(forward_fields = self.forward_fields, adjoint_fields = self.adjoint_fields)
+        if self.use_deps:
+            sim = self.make_sim()
+            d_eps = self.geometry.get_d_eps(sim)
+            sim.close()
+            fom_partial_derivs_vs_wl, wl = self.gradient_fields.spatial_gradient_integral(d_eps)
+            self.gradients = self.fom.fom_gradient_wavelength_integral(fom_partial_derivs_vs_wl, wl)
         else:
-            self.gradients = self.geometry.calculate_gradients_from_sims_eps(self.gradient_fields,real=real)
+            fom_partial_derivs_vs_wl = self.geometry.calculate_gradients(self.gradient_fields)
+            wl = self.gradient_fields.forward_fields.wl
+            self.gradients = self.fom.fom_gradient_wavelength_integral(fom_partial_derivs_vs_wl.transpose(), wl)
         return self.gradients
 
     @staticmethod
@@ -312,3 +288,79 @@ class Optimization(Super_Optimization):
             shutil.copy(calling_file_name, new_opts_dir)
         with open('script_file.lsf','a') as file:
             file.write(base_script.replace(';',';\n'))
+
+    @staticmethod
+    def add_index_monitor(sim, monitor_name):
+        sim.fdtd.select(monitor_name)
+        if sim.fdtd.getnamednumber(monitor_name) != 1:
+            raise UserWarning("a single object named '{}' must be defined in the base simulation.".format(monitor_name))
+        index_monitor_name = monitor_name + '_index'
+        sim.fdtd.addindex()
+        sim.fdtd.set('name', index_monitor_name)
+        sim.fdtd.setnamed(index_monitor_name, 'override global monitor settings', True)
+        sim.fdtd.setnamed(index_monitor_name, 'frequency points', 1)
+        sim.fdtd.setnamed(index_monitor_name, 'record conformal mesh when possible', True)
+        monitor_type = sim.fdtd.getnamed(monitor_name, 'monitor type')
+        geometric_props = ['monitor type']
+        geometric_props.extend(Optimization.cross_section_monitor_props(monitor_type))
+        for prop_name in geometric_props:
+            prop_val = sim.fdtd.getnamed(monitor_name, prop_name)
+            sim.fdtd.setnamed(index_monitor_name, prop_name, prop_val)
+        sim.fdtd.setnamed(index_monitor_name, 'spatial interpolation', 'none')
+
+    @staticmethod
+    def cross_section_monitor_props(monitor_type):
+        geometric_props = ['x', 'y', 'z']
+        if monitor_type == '3D':
+            geometric_props.extend(['x span','y span','z span'])
+        elif monitor_type == '2D X-normal':
+            geometric_props.extend(['y span','z span'])
+        elif monitor_type == '2D Y-normal':
+            geometric_props.extend(['x span','z span'])
+        elif monitor_type == '2D Z-normal':
+            geometric_props.extend(['x span','y span'])
+        elif monitor_type == 'Linear X':
+            geometric_props.append('x span')
+        elif monitor_type == 'Linear Y':
+            geometric_props.append('y span')
+        elif monitor_type == 'Linear Z':
+            geometric_props.append('z span')
+        else:
+            raise UserWarning('monitor should be 2D or linear for a mode expansion to be meaningful.')
+        return geometric_props
+
+    @staticmethod
+    def set_global_wavelength(sim, wavelengths):
+        sim.fdtd.setglobalmonitor('use source limits', True)
+        sim.fdtd.setglobalmonitor('use linear wavelength spacing', True)
+        sim.fdtd.setglobalmonitor('frequency points', len(wavelengths))
+        sim.fdtd.setglobalsource('set wavelength', True)
+        sim.fdtd.setglobalsource('wavelength start', wavelengths.min())
+        sim.fdtd.setglobalsource('wavelength stop', wavelengths.max())
+
+    @staticmethod
+    def set_source_wavelength(sim, source_name, freq_pts):
+        if sim.fdtd.getnamednumber(source_name) != 1:
+            raise UserWarning("a single object named '{}' must be defined in the base simulation.".format(source_name))
+        if sim.fdtd.getnamed(source_name, 'override global source settings'):
+            print('Wavelength range of source object will be superseded by the global settings.')
+        sim.fdtd.setnamed(source_name, 'override global source settings', False)
+        sim.fdtd.select(source_name)
+        if sim.fdtd.haveproperty('multifrequency mode calculation'):
+            sim.fdtd.setnamed(source_name, 'multifrequency mode calculation', True)
+            sim.fdtd.setnamed(source_name, 'frequency points', freq_pts)
+        elif sim.fdtd.haveproperty('multifrequency beam calculation'):
+            sim.fdtd.setnamed(source_name, 'multifrequency beam calculation', True)
+            sim.fdtd.setnamed(source_name, 'number of frequency points', freq_pts)
+        else:
+            raise UserWarning('unable to determine source type.')
+
+    @staticmethod
+    def set_use_legacy_conformal_interface_detection(sim, flagVal):
+        sim.fdtd.select('FDTD')
+        has_legacy_prop = bool(sim.fdtd.haveproperty('use legacy conformal interface detection'))
+        if has_legacy_prop:
+            sim.fdtd.setnamed('FDTD', 'use legacy conformal interface detection', flagVal)
+            sim.fdtd.setnamed('FDTD', 'conformal meshing refinement', 51)
+        else:
+            raise UserWarning('install a more recent version of FDTD or the permittivity derivatives will not be accurate.')

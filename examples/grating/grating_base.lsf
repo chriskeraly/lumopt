@@ -36,8 +36,7 @@ set('polarization angle',90);
 set('y',wg_height+0.4e-6);
 set('x span',grating_length);
 set('x',grating_length/2);
-set('center wavelength',1550e-9);
-set('wavelength span',0);
+set('override global source settings',false);
 set('angle theta',7);
 
 addrect;
@@ -72,7 +71,7 @@ set('x min',0-margin);
 set('x max',grating_length+margin);
 
 addmesh;
-set('name','opt_fields');
+set('name','opt_fields_mesh');
 #set('y min',wg_height-grating_depth-margin);
 #set('y max',wg_height+margin);
 set('y min',wg_height-1e-6);

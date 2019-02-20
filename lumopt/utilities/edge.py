@@ -7,76 +7,53 @@ from lumopt.utilities.scipy_wrappers import trapz1D,trapz3D,trapz2D
 class Edge(object):
     '''This class descibes an edge of an extruded 2D geometry'''
 
-    def __init__(self,first_point,second_point,eps_in,eps_out,z=0,depth=220e-9,dimension='2D'):
-        self.first_point=first_point
-        self.second_point=second_point
-        self.eps_in=eps_in
-        self.eps_out=eps_out
-        self.dimension=dimension
-        self.z=z
-        self.depth=depth
-        if self.dimension=='2D':
-            if z is list:
-                self.z=z[0]
+    def __init__(self, first_point, second_point, eps_in, eps_out, z, depth):
+        self.first_point = first_point
+        self.second_point = second_point
+        self.eps_in = eps_in
+        self.eps_out = eps_out
+        self.z = float(z)
+        self.depth = float(depth)
 
-        self.length=np.sqrt(sum((self.first_point-self.second_point)**2))
+        normal_vect = np.flipud(first_point - second_point)
+        normal_vect = np.array([-normal_vect[0], normal_vect[1],0])
+        self.normal = normal_vect / np.sqrt(np.sum(np.power(normal_vect, 2)))
 
-        temp = np.flipud((first_point - second_point))
-        normal_vect = np.array([-temp[0], temp[1],0])
-
-        self.normal = normal_vect / np.sqrt(sum(normal_vect ** 2))
-
-
-    def derivative(self,gradient_fields,wl,n_points=5,real=True):
-
-        if len(gradient_fields.forward_fields.z)==1:
-            return self.derivative_2D(gradient_fields,wl,n_points=n_points,real=real)
+    def derivative(self, gradient_fields, n_points):
+        if len(gradient_fields.forward_fields.z) == 1:
+            return self.derivative_2D(gradient_fields, n_points = n_points)
         else:
-            return self.derivative_3D(gradient_fields,wl,n_points=n_points,real=real)
+            return self.derivative_3D(gradient_fields, n_points = n_points)
 
-    def derivative_3D(self, gradient_fields, wl, n_points, real):
-        '''Calculates the derivative of an extruded polygon in a 3D simulation by integrating over several layers. The
-        layers follow the mesh grid'''
+    def derivative_3D(self, gradient_fields, n_points):
+        edge_derivs_2D = self.derivative_2D(gradient_fields, n_points)
+        deriv_first = edge_derivs_2D[0] * self.depth
+        deriv_second = edge_derivs_2D[1] * self.depth
+        return (deriv_first, deriv_second)
 
-        z_min=self.z-self.depth/2
-        z_max=self.z+self.depth/2
-        z_vect_sim=np.array(gradient_fields.forward_fields.z)
+    def derivative_2D(self, gradient_fields, n_points):
+        '''Calculates the derivative for moving the two extremity points of an edge in a direction normal to the edge for a 2D simulation.'''
 
-
-        z_in_between=z_vect_sim[(z_vect_sim>z_min) & (z_vect_sim<z_max)]
-        z_s = np.array([z_min] + list(z_in_between) + [z_max])
-
-        edge_derivative_layers = [self.derivative_2D(gradient_fields, wl, n_points, real) for z in z_s]
-        deriv_first_integrand=[elem[0] for elem in edge_derivative_layers]
-        deriv_second_integrand=[elem[1] for elem in edge_derivative_layers]
-
-        deriv_first=trapz1D(deriv_first_integrand,z_s)
-        deriv_second=trapz1D(deriv_second_integrand,z_s)
-
-        return [deriv_first,deriv_second]
-
-    def derivative_2D(self, gradient_fields, wl, n_points, real):
-        '''Calculates the derivative for moving the two extremity points of an edge in a direction normal to the edge for a
-        2D simulation.'''
-        #TODO:Maybe this should be done with a dx rather than a number of points? if one could check the mesh size the choice could be automatic rather
-        #than rely on the user
-
-        integration_points = [self.first_point * i + self.second_point*(1 - i) for i in np.linspace(1, 0, n_points)]
-
-        integrand = gradient_fields.boundary_perturbation_integrand(real)
-
-        integrand_points=[integrand(point[0], point[1], self.z, wl, self.normal, self.eps_in.get_eps(wl), self.eps_out.get_eps(wl)) for point in integration_points]
-
-        #calculate derivative for first point:
-
-        weights=np.linspace(1,0,n_points)
-        deriv_first=trapz1D(integrand_points*weights,self.length*np.linspace(0,1,n_points))
-
-        # and now the second point
-        weights = np.linspace(0, 1, n_points)
-        deriv_second=trapz1D(integrand_points*weights,self.length*np.linspace(0,1,n_points))
-
-        derivatives=[deriv_first,deriv_second]
-        return derivatives
-
-
+        # sampling points along edge
+        points_along_edge_on_unity_scale = np.linspace(0, 1, n_points)
+        points_along_edge_interp_fun = lambda r: self.first_point * (1.0 - r) + self.second_point * r
+        points_along_edge = list(map(points_along_edge_interp_fun, points_along_edge_on_unity_scale))
+        # integrand in (5.28) of Owen Miller's thesis along the edge
+        integrand_interp_func = gradient_fields.boundary_perturbation_integrand()
+        wavelengths = gradient_fields.forward_fields.wl
+        eps_in = self.eps_in.get_eps(wavelengths)
+        eps_out = self.eps_out.get_eps(wavelengths)
+        integrand_along_edge = list()
+        for idx,wl in enumerate(wavelengths):
+            integrand_along_edge_fun = lambda point: integrand_interp_func(point[0], point[1], self.z, wl, self.normal, eps_in[idx], eps_out[idx])
+            integrand_along_edge.append(list(map(integrand_along_edge_fun, points_along_edge)))
+        integrand_along_edge = np.array(integrand_along_edge).transpose().squeeze()
+        # integrate to get derivative at second edge point
+        tangent_vec_length = np.sqrt(np.sum(np.power(self.first_point - self.second_point, 2)))
+        weights = np.outer(points_along_edge_on_unity_scale, np.ones(len(wavelengths))).squeeze()
+        deriv_second = np.trapz(y = integrand_along_edge * weights, x = tangent_vec_length * points_along_edge_on_unity_scale, axis = 0)
+        # integrate to get the derivative at first edge point
+        flipped_weights = np.flip(weights, axis = 0)
+        deriv_first = np.trapz(y = integrand_along_edge * flipped_weights, x = tangent_vec_length * points_along_edge_on_unity_scale, axis = 0)
+        # derivatives at both endpoints
+        return [deriv_first, deriv_second]

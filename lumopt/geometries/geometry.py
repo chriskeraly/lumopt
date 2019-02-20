@@ -4,7 +4,6 @@
 import sys
 import numpy as np
 import lumapi
-import lumopt.lumerical_methods.lumerical_scripts as ls
 from lumopt.utilities.scipy_wrappers import trapz3D
 
 class Geometry(object):
@@ -31,9 +30,9 @@ class Geometry(object):
         geometries = [self, other]
         return Geometry(geometries, 'mul')
 
-    def add_geo(self, sim,params=None):
+    def add_geo(self, sim, params, only_update):
         for geometry in self.geometries:
-            geometry.add_geo(sim,params=params)
+            geometry.add_geo(sim, params, only_update)
 
     def initialize(self,wavelengths,opt):
         for geometry in self.geometries:
@@ -50,9 +49,9 @@ class Geometry(object):
             self.geometries[0].update_geometry(params[:n1])
             self.geometries[1].update_geometry(params[n1:])
 
-    def calculate_gradients(self, gradient_fields, wavelength,real=True):
-        derivs1 = np.array(self.geometries[0].calculate_gradients(gradient_fields, wavelength,real=real))
-        derivs2 = np.array(self.geometries[1].calculate_gradients(gradient_fields, wavelength,real=real))
+    def calculate_gradients(self, gradient_fields, wavelength):
+        derivs1 = np.array(self.geometries[0].calculate_gradients(gradient_fields))
+        derivs2 = np.array(self.geometries[1].calculate_gradients(gradient_fields))
 
         if self.operation=='mul':
             return derivs1+derivs2
@@ -69,56 +68,35 @@ class Geometry(object):
     def plot(self,*args):
         return False
 
-    def get_eps(self,params=None,return_sim=False):
-        if params is None:
-            params=self.get_current_params()
-        sim=self.opt.make_sim()
-        eps,x,y,z = ls.get_eps_from_sim(sim.fdtd)
-        if return_sim:
-            return eps,x,y,z,sim
-        else:
-            return eps, x, y, z
-
-    def update_geo_in_sim(self, sim, params, eval):
-        script = str()
+    def update_geo_in_sim(self, sim, params):
         for geometry in self.geometries:
-            script += geometry.update_geo_in_sim(sim, params, eval)
-        if eval: sim.fdtd.eval(script)
-        return script
+            geometry.update_geo_in_sim(sim, params)
 
-    def get_eps_update(self,sim,params=None):
-        if params is None:
-            params = self.get_current_params()
-        sim.fdtd.switchtolayout()
-        self.update_geo_in_sim(sim,params, eval = True)
-        eps,x,y,z = ls.get_eps_from_sim(sim.fdtd)
-        return eps,x,y,z
+    @staticmethod
+    def get_eps_from_sim(fdtd, monitor_name = 'opt_fields'):
+        index_monitor_name = monitor_name + '_index'
+        index_dict = fdtd.getresult(index_monitor_name, 'index')
+        fields_eps_x = np.power(index_dict['index_x'], 2)
+        fields_eps_y = np.power(index_dict['index_y'], 2)
+        fields_eps_z = np.power(index_dict['index_z'], 2)
+        fields_eps = np.stack((fields_eps_x, fields_eps_y, fields_eps_z), axis = -1)
+        return fields_eps, index_dict['x'], index_dict['y'], index_dict['z'], index_dict['lambda']
 
-    def get_d_eps_d_params_update(self,dx):
+    def get_eps_update(self, sim, params):
+        self.update_geo_in_sim(sim, params)
+        eps, x, y, z, wl = Geometry.get_eps_from_sim(sim.fdtd)
+        return eps
 
-        current_eps, x, y, z, sim = self.get_eps(return_sim=True)
-        current_params=self.get_current_params()
+    def get_d_eps(self, sim):
+        current_eps, x, y, z, wl = Geometry.get_eps_from_sim(sim.fdtd)
+        current_params = self.get_current_params()
         d_epses = list()
-        print('Getting d eps: dx = ' + str(dx))
+        print('Getting d eps: dx = ' + str(self.dx))
         for i,param in enumerate(current_params):
             d_params = current_params.copy()
-            d_params[i] = param + dx
-            d_eps = (self.get_eps_update(sim,d_params)[0]-current_eps) / dx
+            d_params[i] = param + self.dx
+            d_eps = (self.get_eps_update(sim,d_params) - current_eps) / self.dx
             d_epses.append(d_eps)
             sys.stdout.write('.'), sys.stdout.flush()
         print('')
-        sim.close()
-        return d_epses,x,y,z
-
-    def calculate_gradients_from_sims_eps(self, gradient_fields, real = True):
-        d_epses, x, y, z = self.get_d_eps_d_params_update(dx = self.dx)
-        fields = gradient_fields.sparse_perturbation_field_nosum()
-        wl_points = fields.shape[3]
-        num_opt_param = len(d_epses)
-        derivs = np.zeros((num_opt_param, wl_points), dtype = 'complex')
-        for i in range(num_opt_param):
-            d_eps = np.take(d_epses[i], indices = 0, axis = 3) # permittivity derivatives are constant over frequency
-            for j in range(wl_points):
-                derivs[i, j] = trapz3D(np.sum(np.take(fields, indices = j, axis = 3) * d_eps, axis = -1), x, y, z)
-        derivs = derivs.squeeze()
-        return np.real(derivs) if real else derivs
+        return d_epses
