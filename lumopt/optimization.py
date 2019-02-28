@@ -14,19 +14,25 @@ from lumopt.utilities.simulation import Simulation
 from lumopt.utilities.gradients import GradientFields
 from lumopt.figures_of_merit.modematch import ModeMatch
 from lumopt.utilities.plotter import Plotter
-from lumopt.utilities.scipy_wrappers import trapz3D
+from lumopt.lumerical_methods.lumerical_scripts import get_fields
 
-class Super_Optimization(object):
-    ''' Optimization base class which allows the user to use the addition operator to co-optimize two figures of merit
-        that take the same parameters. The figures of merit are simply added and the plotting functions use the first
-        figure of merit.'''
+class SuperOptimization(object):
+    """
+        Optimization super class to run two or more co-optimizations targeting different figures of merit that take the same parameters.
+        The addition operator can be used to aggregate multiple optimizations. All the figures of merit are simply added to generate 
+        an overall figure of merit that is passed to the chosen optimizer.
+
+        Parameters
+        ----------
+        :param optimizations: list of co-optimizations (each of class Optimization). 
+    """
 
     def __init__(self,optimizations):
         self.optimizations=optimizations
 
     def __add__(self,other):
         optimizations=[self,other]
-        return Super_Optimization(optimizations)
+        return SuperOptimization(optimizations)
 
     def initialize(self,start_params=None,bounds=None):
 
@@ -75,23 +81,26 @@ class Super_Optimization(object):
         return self.optimizer.fom_hist[-1],self.optimizer.params_hist[-1]
 
 
-class Optimization(Super_Optimization):
-    """ Acts as a master class for all the optimization pieces. Calling the function run will perform the full optimization.
-        To perform an optimization, four key pieces are requred. These are: 
-               1) a script to generate the base simulation,
-               2) an object that defines and collects the figure of merit,
-               3) an object that generates the shape under optimization for a given set of optimization parameters and
-               4) a SciPy gradient based minimizer.
+class Optimization(SuperOptimization):
+    """ Acts as orchestrator for all the optimization pieces. Calling the member function run will perform the optimization,
+        which requires four key pieces: 
+            1) a script to generate the base simulation,
+            2) an object that defines and collects the figure of merit,
+            3) an object that generates the shape under optimization for a given set of optimization parameters and
+            4) a gradient based optimizer.
 
-        :base_script: string with script to generate the base simulation.
-        :fom:         figure of merit object (see class ModeMatch).
-        :geometry:    optimizable geometry (see class FunctionDefinedPolygon).
-        :optimizer:   SciyPy minimizer wrapper (see class ScipyOptimizers).
-        :use_deps:    use the numerical derivatives provided by FDTD.
+        Parameters
+        ----------
+        :param base_script: string with script to generate the base simulation (helper function load_from_lsf).
+        :param wavelengths: wavelength value (float) or range (class Wavelengths) with the spectral range for all simulations.
+        :param fom:         figure of merit (class ModeMatch).
+        :param geometry:    optimizable geometry (class FunctionDefinedPolygon).
+        :param optimizer:   SciyPy minimizer wrapper (class ScipyOptimizers).
+        :param hide_fdtd:   flag run FDTD CAD in the background.
+        :param use_deps:    flag to use the numerical derivatives calculated directly from FDTD.
     """
 
     def __init__(self, base_script, wavelengths, fom, geometry, optimizer, hide_fdtd_cad = False, use_deps = True):
-
         self.base_script = base_script
         self.wavelengths = wavelengths if isinstance(wavelengths, Wavelengths) else Wavelengths(wavelengths)
         self.fom = fom
@@ -126,143 +135,99 @@ class Optimization(Super_Optimization):
         print('FINAL PARAMETERS = {}'.format(self.optimizer.params_hist[-1]))
         return self.optimizer.fom_hist[-1],self.optimizer.params_hist[-1]
 
-
     def initialize(self):
+        """ Performs all steps that need to be carried only once at the beginning of the optimization. """
+
         start_params = self.geometry.get_current_params()
         callable_fom = self.callable_fom
         callable_jac = self.callable_jac
         bounds = np.array(self.geometry.bounds)
         def plotting_function():
             self.plotter.update(self)
-        self.optimizer.initialize(start_params=start_params,callable_fom=callable_fom,callable_jac=callable_jac,bounds=bounds,plotting_function=plotting_function)
+        self.optimizer.initialize(start_params = start_params, callable_fom = callable_fom, callable_jac = callable_jac, bounds = bounds, plotting_function = plotting_function)
+        self.sim = Simulation(self.workingDir, self.hide_fdtd_cad)
 
-    def make_sim(self, geometry = None):
-        '''Creates the forward simulation by adding the geometry to the base simulation and adding D monitors to any field monitor in the simulation.
-        If the FOM object needs it's own monitors (or needs to manipulate those already present) they will also be added/manipulated.
+    def make_forward_sim(self, geometry = None):
+        """ Creates the forward simulation by adding the geometry to the base simulation and adding a refractive index monitor overlaping
+            with the 'opt_fields' monitor. The 'source' object is modified to follow the global frequency settings.
 
-        :param geometry: By default the current gometry of the Optimization #will be put in, but this can be overriden by inputing another geometry here
+            :geometry: the current gometry under optimization.
+        """
 
-        :returns: sim, Handle to the simulation '''
-
-        # create the simulation object
-        sim = Simulation(self.workingDir, self.base_script, self.hide_fdtd_cad)
-        Optimization.set_global_wavelength(sim, self.wavelengths)
-        Optimization.set_source_wavelength(sim, 'source', len(self.wavelengths))
-        sim.fdtd.setnamed('opt_fields', 'override global monitor settings', False)
-        sim.fdtd.setnamed('opt_fields', 'spatial interpolation', 'none')
-        Optimization.add_index_monitor(sim, 'opt_fields')
-        if(self.use_deps):
-            Optimization.set_use_legacy_conformal_interface_detection(sim, False)
-
+        self.sim.fdtd.switchtolayout()
+        self.sim.fdtd.deleteall()
+        self.sim.fdtd.eval(self.base_script)
+        Optimization.set_global_wavelength(self.sim, self.wavelengths)
+        Optimization.set_source_wavelength(self.sim, 'source', len(self.wavelengths))
+        self.sim.fdtd.setnamed('opt_fields', 'override global monitor settings', False)
+        self.sim.fdtd.setnamed('opt_fields', 'spatial interpolation', 'none')
+        Optimization.add_index_monitor(self.sim, 'opt_fields')
+        if self.use_deps:
+            Optimization.set_use_legacy_conformal_interface_detection(self.sim, False)
         time.sleep(0.1)
-
-        # add the optimizable geometry
         if geometry is None:
-            self.geometry.add_geo(sim, params = None, only_update = False)
+            self.geometry.add_geo(self.sim, params = None, only_update = False)
         else:
-            geometry.add_geo(sim)
-        # add the index monitors
-        self.fom.add_to_sim(sim)
+            geometry.add_geo(self.sim)
+        self.fom.add_to_sim(self.sim)
 
-        return sim
-
-    def get_fom_geo(self, geometry=None):
-
-        '''Will make and run the simulation, extract the figure of merit and return it
-
-        :param geometry: If None, the current geometry will be used
-        :returns: fom, The figure of merit calculated'''
-
-        # create the simulation
-        sim = self.make_sim(geometry=geometry)
-        # run the simulation
-        sim.run(self.iteration)
-        # get the fom
-        fom = self.fom.get_fom(sim)
-        sim.close()
-        return fom
-
-    def run_forward_solves(self, plotfields=False):
-        '''
-        Generates the new forward simulations, runs them and computes the figure of merit and forward fields
-
-        :param plotfields: Will plot the fields if True
-
-        Since this assumes that this is used only in an optimization loop, the figure of merit is recorded and appended
-        to the fomHist
-        '''
+    def run_forward_solves(self):
+        """ Generates the new forward simulations, runs them and computes the figure of merit and forward fields. """
 
         print('Running forward solves')
-
-        # create the simulation
-        forward_sim = self.make_sim()
-
-        # run the simulation
-        forward_sim.run(name = 'forward', iter = self.optimizer.iteration)
-
-        # get the fields used for gradient calculation
-        self.forward_fields = forward_sim.get_gradient_fields('opt_fields')
-
-        # get the fom
-        fom = self.fom.get_fom(forward_sim)
+        self.make_forward_sim()
+        self.sim.run(name = 'forward', iter = self.optimizer.iteration)
+        self.forward_fields = get_fields(self.sim.fdtd, monitor_name = 'opt_fields', get_eps = True, get_D = True, get_H = True, nointerpolation = True)
+        fom = self.fom.get_fom(self.sim)
         self.fomHist.append(fom)
-
-        forward_sim.close()
-
         print('FOM = {}'.format(fom))
         return fom
 
-    def run_adjoint_solves(self, plotfields=False):
-        '''
-        Generates the adjoint simulations, runs them and extacts the adjoint fields
-        '''
+    def run_adjoint_solves(self):
+        """ Generates the adjoint simulations, runs them and extacts the adjoint fields. """
 
         print('Running adjoint solves')
+        self.make_forward_sim()
+        self.sim.fdtd.selectpartial('source')
+        self.sim.fdtd.delete()
+        self.fom.add_adjoint_sources(self.sim)
+        self.sim.run(name = 'adjoint', iter = self.optimizer.iteration)
+        self.adjoint_fields = get_fields(self.sim.fdtd, monitor_name = 'opt_fields', get_eps = True, get_D = True, get_H = True, nointerpolation = True)
+        self.adjoint_fields.scale(3, self.fom.get_adjoint_field_scaling(self.sim))
 
-        adjoint_sim = self.make_sim()
+    def callable_fom(self, params):
+        """ Function for the optimizers to retrieve the figure of merit.
+            :param params:  geometry parameters.
+            :returns: figure of merit.
+        """
 
-        # Remove the forward sources and add the adjoint sources
-        adjoint_sim.remove_sources()
-        self.fom.add_adjoint_sources(adjoint_sim)
-
-        adjoint_sim.run(name = 'adjoint', iter = self.optimizer.iteration)
-
-        self.adjoint_fields = adjoint_sim.get_gradient_fields('opt_fields')
-        self.adjoint_fields.scale(3, self.fom.get_adjoint_field_scaling(adjoint_sim))
-        adjoint_sim.close()
-
-
-    def callable_fom(self,params):
-        '''A callable function for the optimizers for the figure of merit
-        :param params: The geometry parameters
-
-        :returns: the fom
-        '''
         self.geometry.update_geometry(params)
         fom = self.run_forward_solves()
         return fom
 
-    def callable_jac(self,params):
-        '''A callable function for the optimizer that returns derivatives with respect to the parameters
-
-        :param params: The geometry paramaters, but actually these aren't used
-        :returns: The gradients'''
+    def callable_jac(self, params):
+        """ Function for the optimizer to extract the figure of merit gradient.
+            :params:  geometry paramaters, currently not used.
+            :returns: partial derivative of the figure of merit with respect to each optimization parameter.
+        """
 
         self.run_adjoint_solves()
         gradients = self.calculate_gradients()
         return np.array(gradients)
 
     def calculate_gradients(self):
-        ''' Calculates the gradient of the figure of merit (FOM) with respect to each of the optimization parameters.
+        """ Calculates the gradient of the figure of merit (FOM) with respect to each of the optimization parameters.
             It assumes that both the forward and adjoint solves have been run so that all the necessary field results
-            have been collected.'''
+            have been collected. There are currently two methods to compute the gradient:
+                1) using the permittivity derivatives calculated directly from meshing (use_deps == True) and
+                2) using the shape derivative approximation described in Owen Miller's thesis (use_deps == False).
+        """
 
         print('Calculating gradients')
         self.gradient_fields = GradientFields(forward_fields = self.forward_fields, adjoint_fields = self.adjoint_fields)
         if self.use_deps:
-            sim = self.make_sim()
-            d_eps = self.geometry.get_d_eps(sim)
-            sim.close()
+            self.make_forward_sim()
+            d_eps = self.geometry.get_d_eps(self.sim)
             fom_partial_derivs_vs_wl, wl = self.gradient_fields.spatial_gradient_integral(d_eps)
             self.gradients = self.fom.fom_gradient_wavelength_integral(fom_partial_derivs_vs_wl, wl)
         else:

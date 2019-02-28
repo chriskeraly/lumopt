@@ -8,19 +8,19 @@ import scipy.constants
 from lumopt.utilities.wavelengths import Wavelengths
 
 class Material(object):
-    ''' Permittivity of a material associated with a geometric primitive.
-
-        In FDTD Solutions, a material can be given in two ways:
+    ''' Permittivity of a material associated with a geometric primitive. In FDTD Solutions, a material can be given in two ways:
 
             1) By providing a material name from the material database (e.g. 'Si (Silicon) - Palik') that can be assigned to a geometric primitive.
             2) By providing a refractive index value directly in geometric primitive.
 
         To use the first option, simply set the name to '<Object defined dielectric>' and enter the desired base permittivity value.
-        To use the second option, set the name to the desired material name and the base permittivity to none.
+        To use the second option, set the name to the desired material name (base permittivity will be ignored).
 
-        :name:         string (such as "Si (Silicon) - Palik") with a valid material name.
-        :base_epsilon: scalar base permittivity value.
-        :mesh_order:   order of material resolution for overlapping primitives.
+        Parameters
+        ----------
+        :param name:         string (such as 'Si (Silicon) - Palik') with a valid material name.
+        :param base_epsilon: scalar base permittivity value.
+        :param mesh_order:   order of material resolution for overlapping primitives.
       '''
 
     object_dielectric = str('<Object defined dielectric>')

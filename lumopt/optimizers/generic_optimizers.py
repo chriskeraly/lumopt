@@ -7,29 +7,38 @@ import scipy.optimize as spo
 from lumopt.optimizers.optimizer import Optimizer
 
 class ScipyOptimizers(Optimizer):
-    '''Using scipy's optimizers to perform the optimizations. Some of the algorithms (L-BFGS-G in particular) can approximate
-    the Hessian from the different optimization steps (also called Quasi-Newton Optimization). While this is very powerfull,
-    the derivatives calculated here using a continuous adjoint method can be noisy, which in turn can lead to poor behavior of
-    these Quasi-Newton methods, which expect machine precision derivatices. Therefore these methods are to be used with some caution.
+    """ Wrapper for the optimizers in SciPy's optimize package: 
 
-    Checkout documentation of different optimization methods at  :meth:`scipy.optimize.minimize`
+            https://docs.scipy.org/doc/scipy/reference/optimize.html#module-scipy.optimize
 
-    '''
+        Some of the optimization algorithms available in the optimize package ('L-BFGS-G' in particular) can approximate the Hessian from the 
+        different optimization steps (also called Quasi-Newton Optimization). While this is very powerfull, the figure of merit gradient calculated 
+        from a simulation using a continuous adjoint method can be noisy. This can point Quasi-Newton methods in the wrong direction, so use them 
+        with caution.
 
-    def __init__(self, max_iter, method, scaling_factor, pgtol):
-        '''
-        :param max_iter: maximum number of iterations to run the optimizer for. This is not necessarily equal to the number of times a direct/adjoint simulation pair will be run, since these methods can make several calls for each iteration
-        :param method: a string which defines which optimization algorithm to use (see :meth:`scipy.optimize.minimize`)
-        :param scaling_factor: See :class:`~lumopt.optimzers.generic_optimizers.Optimizer`. The scaling factor is particularly important for scipy optimizers not to freak out.
-        '''
-        super(ScipyOptimizers,self).__init__(max_iter,scaling_factor)
+        Parameters
+        ----------
+        :param max_iter:       maximum number of iterations; each iteration can make multiple figure of merit and gradient evaluations.
+        :param method:         string with the chosen minimization algorithm.
+        :param scaling_factor: optimization parameters are scaled by this factor.
+        :param pgtol:          gradient tolerance paramter 'gtol' (see 'BFGS' or 'L-BFGS-G' documentation).
+    """
 
-        self.method=method
-        self.fom_calls=0
-        self.pgtol=pgtol
+    def __init__(self, max_iter, method = 'L-BFGS-G', scaling_factor = 1.0, pgtol = 1.0e-5):
+        super(ScipyOptimizers,self).__init__(max_iter, scaling_factor)
+        self.method = str(method)
+        self.fom_calls = int(0)
+        self.pgtol = float(pgtol)
 
     def define_callables(self,callable_fom,callable_jac):
-        '''This makes the function that is callable by scipy's optimization method'''
+        """ Defines the functions that the optimizer will use to evaluate the figure of merit and its gradient. The sign
+            of the figure of merit and its gradient are flipped here to perform a maximization rather than a minimization.
+
+            Parameters
+            ----------
+            :param callable_fom: function taking a numpy vector of optimization parameters and returning the figure of merit.
+            :param callable_jac: function taking a numpy vector of optimization parameters and returning a vector of the same size with the figure of merit gradients.
+        """
 
         def callable_fom_local(params):
             fom=callable_fom(params/self.scaling_factor)

@@ -9,10 +9,10 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 class Fields(object):
-    '''This object is created from fields loaded from Lumerical m=field monitors. Several iterpolation objects are then created internally to
-    enable the easy access of the fields in the simulation space
-
-    Use :method:`~lumopt.lumerical_methods.lumerical_scripts.get_fields` to load the data properly'''
+    """ 
+        Container for the raw fields from a field monitor. Several interpolation objects are created internally to evaluate the fields
+        at any point in space. Use the auxiliary :method:lumopt.lumerical_methods.lumerical_scripts.get_fields to create this object.
+    """
 
     def __init__(self,x,y,z,wl,E,D,eps,H):
 
@@ -63,7 +63,6 @@ class Fields(object):
         return field_interpolator
 
     def plot(self,ax,title,cmap):
-        '''Plots E^2 for the plotter'''
         ax.clear()
         xx, yy = np.meshgrid(self.x, self.y)
         z = (min(self.z) + max(self.z))/2 + 1e-10
@@ -79,7 +78,6 @@ class Fields(object):
         ax.set_ylabel('y (um)')
 
     def plot_full(self,D=False,E=True,eps=False,H=False,wl=1550e-9,original_grid=True):
-        '''Plot the different fields'''
 
         if E:
             self.plot_field(self.getfield,original_grid=original_grid,wl=wl,name='E')
@@ -196,7 +194,6 @@ class FieldsNoInterp(Fields):
             return field_interpolator
 
     def plot(self,ax,title,cmap):
-        '''Plots E^2 for the plotter'''
         ax.clear()
         xx, yy = np.meshgrid(self.x[1:-1], self.y[1:-1])
         z = (min(self.z) + max(self.z))/2 + 1e-10
@@ -212,10 +209,13 @@ class FieldsNoInterp(Fields):
         ax.set_ylabel('y (um)')
 
     def scale(self, dimension, factors):
-        """ Scales the E, D and H field arrays along the specified dimension using the provided weighting factors.
+        """
+            Scales the E, D and H field arrays along the specified dimension using the provided weighting factors.
 
-            :dimension: 0 (x-axis), 1 (y-axis), 2 (z-axis), (3) frequency and (4) vector component.
-            :factors:   list or vector of weighting factors of the same size as the target field dimension.
+            Parameters
+            ----------
+            :param dimension: 0 (x-axis), 1 (y-axis), 2 (z-axis), (3) frequency and (4) vector component.
+            :param factors:   list or vector of weighting factors of the same size as the target field dimension.
         """
 
         if hasattr(self.E, 'dtype'):

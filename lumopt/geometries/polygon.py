@@ -12,44 +12,34 @@ from lumopt.utilities.materials import Material
 
 
 class Polygon(Geometry):
-    '''An polygon extruded in the z direction, where the points are allowed to move in any direction in the x-y plane. The points
-    and extrusion parameters must be defined, as well as the permittivity (or material) forming the inside of the polygon and the permittivity
-    (or material) surrounding the polygon. If the Polygon is surrounded by different materials, the shape derivatives will be wrong along the edges
-    where the wrong material surrounds the polygon.
+    """ 
+        Defines a polygon with vertices on the (x,y)-plane that are extruded along the z direction to create a 3-D shape. The vertices are 
+        defined as a numpy array of coordinate pairs np.array([(x0,y0),...,(xn,yn)]). THE VERTICES MUST BE ORDERED IN A COUNTER CLOCKWISE DIRECTION.
 
+        :param points:         array of shape (N,2) defining N polygon vertices.
+        :param z:              center of polygon along the z-axis.
+        :param depth:          span of polygon along the z-axis.
+        :param eps_out:        permittivity of the material around the polygon.
+        :param eps_in:         permittivity of the polygon material.
+        :param edge_precision: number of quadrature points along each edge for computing the FOM gradient using the shape derivative approximation method.
+    """
 
-    :param points:
-        The points are defined as a numpy array of tupple coordinates np.array([(x0,y0),...,(xn,yn)]). THEY MUST BE DEFINED IN A
-        COUNTER CLOCKWISE DIRECTION.
-    :param z:
-        The center of the polygon along the z axis
-    :param depth:
-        The depth of the extrusion in the z direction (in meters)
-    :param eps_out:
-        The permittivity of the outer-material (square of refractive index), or the name of a Lumerical Material, from which the permittivity
-        will be extracted. Can also be a Material object from :class:`lumpot.utilities.materials.Material` with a defined mesh order.
-    :param eps_in:
-        The permittivity of the inner-material (square of refractive index), or the name of a Lumerical Material, from which the permittivity
-        will be extracted. Can also be a Material object from :class:`lumpot.utilities.materials.Material` with a defined mesh order.
-    :param edge_precision:
-        The edges will be discretized when calculating the gradients with respect to moving different points of the geometry. This parmeter
-        will define the number of discretization points per edge. It is strongly recommended to have at least a few points per mesh cell.
-    '''
-
-    self_update=False
-
-    def __init__(self,points, z, depth, eps_out, eps_in, edge_precision, bounds, dx):
-        self.points=points
-        self.z=z
-        self.depth=depth
-        self.gradients=[]
-        self.edge_precision=edge_precision
-        self.dx=dx
+    def __init__(self, points, z, depth, eps_out, eps_in, edge_precision):
+        self.points = points
+        self.z = float(z)
+        self.depth = float(depth)
+        self.edge_precision = int(edge_precision)
         self.eps_out = eps_out if isinstance(eps_out, Material) else Material(eps_out)
         self.eps_in = eps_in if isinstance(eps_in, Material) else Material(eps_in)
+
+        if self.depth <= 0.0:
+            raise UserWarning("polygon depth must be positive.")
+        if self.edge_precision <= 0:
+            raise UserWarning("edge precision must be a positive integer.")
+
+        self.gradients = list()
         self.make_edges()
         self.hash = random.getrandbits(64)
-        return
 
     def make_edges(self):
         '''Creates all the edge objects'''
@@ -132,45 +122,41 @@ class Polygon(Geometry):
 
 
 class FunctionDefinedPolygon(Polygon):
-    '''This defines a polygon from a function that takes the optimization parameters and returns a set of points.
+    """ 
+        Constructs a polygon from a user defined function that takes the optimization parameters and returns a set of vertices defining a polygon.
+        The polygon vertices returned by the function must be defined as a numpy array of coordinate pairs np.array([(x0,y0),...,(xn,yn)]). THE 
+        VERTICES MUST BE ORDERED IN A COUNTER CLOCKWISE DIRECTION.
 
-    :param func:
-        A function that takes as input a list of optimization parameters and returns a list of point coordinates forming
-        the polygon to optimize. See example :func:`~lumpot.geometries.polygon.taper_splitter`.
-        The points are defined as a numpy array of tupple coordinates np.array([(x0,y0),...,(xn,yn)]).
-        THEY MUST BE DEFINED IN A COUNTER CLOCKWISE DIRECTION.
-    :param initial_params:
-        The initial parameters, which when fed to the previously defined function, will generate the starting geometry of
-        the optimization
-    :param Bounds:
-        The bounds that should be applied on the optimization parameters
-    :param z:
-        see :class:`~lumpot.geometries.polygon.Polygon`
-    :param depth:
-        see :class:`~lumpot.geometries.polygon.Polygon`
-    :param eps_out:
-        see :class:`~lumpot.geometries.polygon.Polygon`
-    :param eps_in:
-        see :class:`~lumpot.geometries.polygon.Polygon`
-    :param edge_precision:
-        see :class:`~lumpot.geometries.polygon.Polygon`
-        '''
+        Parameters
+        ----------
+        :param fun:            function that takes the optimization parameter values and returns a polygon.
+        :param initial_params: initial optimization parameter values.
+        :param bounds:         bounding ranges (min/max pairs) for each optimization parameter.
+        :param z:              center of polygon along the z-axis.
+        :param depth:          span of polygon along the z-axis.
+        :param eps_out:        permittivity of the material around the polygon.
+        :param eps_in:         permittivity of the polygon material.
+        :param edge_precision: number of quadrature points along each edge for computing the FOM gradient using the shape derivative approximation method.
+        :param dx:             step size for computing the FOM gradient using permittivity perturbations.
+    """
 
-    def __init__(self, func, initial_params, bounds, z, depth, eps_out, eps_in, edge_precision, dx):
-        self.points=func(initial_params)
-        self.func=func
-        self.z=z
-        self.current_params=initial_params
-        self.depth=depth
-        self.gradients=[]
-        self.edge_precision=edge_precision
-        self.bounds=bounds
-        self.params_hist=[initial_params]
-        self.eps_out = eps_out if isinstance(eps_out, Material) else Material(eps_out)
-        self.eps_in = eps_in if isinstance(eps_in, Material) else Material(eps_in)
-        self.make_edges()
-        self.dx=dx
-        self.hash = random.getrandbits(128)
+    def __init__(self, func, initial_params, bounds, z, depth, eps_out, eps_in, edge_precision = 5, dx = 1.0e-10):
+        self.func = func
+        self.current_params = initial_params
+        points = func(initial_params)
+        super(FunctionDefinedPolygon, self).__init__(points, z, depth, eps_out, eps_in, edge_precision)
+        self.bounds = bounds
+        self.dx = float(dx)
+
+        if len(self.bounds) != self.current_params.size:
+            raise UserWarning("there must be one bound for each parameter.")
+        for bound in self.bounds:
+            if bound[1] - bound[0] <= 0.0:
+                raise UserWarning("bound ranges must be positive.")
+        if self.dx <= 0.0:
+            raise UserWarning("step size must be positive.")
+
+        self.params_hist = list(initial_params)
 
     def update_geometry(self,params):
         self.points=self.func(params)

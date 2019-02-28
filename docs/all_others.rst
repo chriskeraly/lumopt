@@ -7,7 +7,7 @@ Fields
 Gradient Fields
 ===============
 
-.. autoclass:: lumopt.utilities.gradients.Gradient_fields
+.. autoclass:: lumopt.utilities.gradients.GradientFields
    :members:
 
 Others

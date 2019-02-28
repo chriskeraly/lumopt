@@ -45,12 +45,12 @@ class Plotter(object):
                 if not opt.geometry.plot(self.ax[1,0]):
                    opt.gradient_fields.plot_eps(self.ax[1,0])
                 opt.gradient_fields.plot(self.fig, self.ax[1,1], self.ax[0,1])
-                print('Plots updated with optimization {0} iteration {1} results'.format(i, optimization.optimizer.iteration))
+                print('Plots updated with optimization {0} iteration {1} results'.format(i, optimization.optimizer.iteration - 1))
         else:
             if not optimization.geometry.plot(self.ax[1,0]):
                 optimization.gradient_fields.plot_eps(self.ax[1,0])
             optimization.gradient_fields.plot(self.fig, self.ax[1,1], self.ax[0,1])
-            print('Plots updated with iteration {} results'.format(optimization.optimizer.iteration))
+            print('Plots updated with iteration {} results'.format(optimization.optimizer.iteration - 1))
         plt.tight_layout()
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()

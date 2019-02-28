@@ -1,5 +1,5 @@
-User Functions
-==============
+User Classes and Functions
+==========================
 
 .. toctree::
    :maxdepth: 2

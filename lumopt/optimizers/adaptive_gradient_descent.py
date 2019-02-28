@@ -8,26 +8,25 @@ from lumopt.optimizers.generic_optimizers import Optimizer
 class AdaptiveGradientDescent(Optimizer):
     """ Almost identical to FixedStepGradientDescent, except that dx changes according to the following rule:
 
-        dx = min(max_dx,dx*dx_regrowth_factor)
-        while newfom < oldfom
-        dx = dx / 2
-        if dx < min_dx:
-            dx = min_dx
-            return newfom
-    """
+            dx = min(max_dx,dx*dx_regrowth_factor)
+            while newfom < oldfom
+            dx = dx / 2
+            if dx < min_dx:
+                dx = min_dx
+                return newfom
 
-    def __init__(self, max_dx, min_dx, max_iter, dx_regrowth_factor, all_params_equal, scaling_factor):
-        '''
+        Parameters
+        ----------
         :param max_dx:             maximum allowed change of a parameter per iteration.
         :param min_dx:             minimum step size (for the largest parameter changing) allowed.
         :param dx_regrowth_factor: by how much dx will be increased at each iteration.
         :param max_iter:           maximum number of iterations to run.
         :param all_params_equal:   if true, all parameters will be changed by +/- dx depending on the sign of their associated shape derivative.
         :param scaling_factor:     scaling factor to bring the optimization variables close to one.
-        '''
+    """
 
+    def __init__(self, max_dx, min_dx, max_iter, dx_regrowth_factor, all_params_equal, scaling_factor):
         super(AdaptiveGradientDescent,self).__init__(max_iter, scaling_factor)
-
         self.max_dx = max_dx * self.scaling_factor
         self.all_params_equal = all_params_equal
         self.predictedchange_hist = []

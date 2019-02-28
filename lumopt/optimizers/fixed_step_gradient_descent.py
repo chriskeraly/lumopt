@@ -7,31 +7,27 @@ import numpy.random
 from lumopt.optimizers.generic_optimizers import Optimizer
 
 class FixedStepGradientDescent(Optimizer):
-    """ Gradient descent with the option to add noise, and parameter scaling
-
-        Update Equation:
+    """ Gradient descent with the option to add noise and a parameter scaling. The update equation is:
 
             \Delta p_i = \frac{\frac{dFOM}{dp_i}}{max_j(|\frac{dFOM}{dp_j}|)}\Delta x +\text{noise}_i
 
-            if all_params_equal = True
+        If all_params_equal = True, then the update equation is:
 
             \Delta p_i = sign(\frac{dFOM}{dp_i})\Delta x +\text{noise}_i
 
-        Noise can be added in the update equation, if the optimization has many local optima: noise = rand([-1,1])*noise_magnitude.
+        If the optimization has many local optima: noise = rand([-1,1])*noise_magnitude.
 
-    """
-
-    def __init__(self, max_dx, max_iter, all_params_equal, noise_magnitude, scaling_factor):
-        """
+        Parameters
+        ----------
         :param max_dx:           maximum allowed change of a parameter per iteration.
         :param max_iter:         maximum number of iterations to run.
         :param all_params_equal: if true, all parameters will be changed by +/- dx depending on the sign of their associated shape derivative.
         :param noise_magnitude:  amplitude of the noise.
         :param scaling_factor:   scaling factor to bring the optimization variables closer to 1
-        """
+    """
 
+    def __init__(self, max_dx, max_iter, all_params_equal, noise_magnitude, scaling_factor):
         super(FixedStepGradientDescent, self).__init__(max_iter, scaling_factor)
-
         self.max_dx = max_dx * self.scaling_factor
         self.all_params_equal = all_params_equal
         self.noise_magnitude = noise_magnitude * self.scaling_factor
