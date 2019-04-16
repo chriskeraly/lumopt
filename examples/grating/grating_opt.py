@@ -19,7 +19,7 @@ from lumopt.optimization import Optimization
 script = load_from_lsf(os.path.join(os.path.dirname(__file__), 'grating_base.lsf'))
 
 ######## DEFINE SPECTRAL RANGE #########
-wavelengths = Wavelengths(start = 1300e-9, stop = 1800e-9, points = 21)
+wavelengths = Wavelengths(start = 1550e-9, stop = 1550e-9, points = 1)
 
 ######## DEFINE MATERIALS ##############
 oxide = Material(1.44**2, mesh_order = 1)
@@ -54,7 +54,7 @@ for i in range(1,n_grates):
     full_geometry = full_geometry*new_tooth
 
 ######## DEFINE FIGURE OF MERIT ########
-fom = ModeMatch(monitor_name = 'fom', mode_number = 1, direction = 'Forward', target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1)
+fom = ModeMatch(monitor_name = 'fom', mode_number = 1, direction = 'Forward',  multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1)
 
 ######## DEFINE OPTIMIZATION ALGORITHM ########
 optimizer = ScipyOptimizers(max_iter = 30, method = 'L-BFGS-B', scaling_factor = 1e6, pgtol = 1e-9)

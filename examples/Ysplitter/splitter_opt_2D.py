@@ -51,7 +51,7 @@ geometry = FunctionDefinedPolygon(func = taper_splitter, initial_params = initia
 
 ######## DEFINE FIGURE OF MERIT ########
 # The base simulation script defines a field monitor named 'fom' at the point where we want to modematch to the 3rd mode (fundamental TE mode).
-fom = ModeMatch(monitor_name = 'fom', mode_number = 3, direction = 'Forward', target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1)
+fom = ModeMatch(monitor_name = 'fom', mode_number = 3, direction = 'Forward', multi_freq_src = True, target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1)
 
 ######## DEFINE OPTIMIZATION ALGORITHM ########
 # This will run Scipy's implementation of the L-BFGS-B algoithm for at least 40 iterations. Since the variables are on the

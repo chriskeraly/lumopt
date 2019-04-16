@@ -9,6 +9,7 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 
+from lumopt.utilities.base_script import BaseScript
 from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.utilities.simulation import Simulation
 from lumopt.utilities.gradients import GradientFields
@@ -91,7 +92,7 @@ class Optimization(SuperOptimization):
 
         Parameters
         ----------
-        :param base_script: string with script to generate the base simulation (helper function load_from_lsf).
+        :param base_script: callable, file name or plain string with script to generate the base simulation.
         :param wavelengths: wavelength value (float) or range (class Wavelengths) with the spectral range for all simulations.
         :param fom:         figure of merit (class ModeMatch).
         :param geometry:    optimizable geometry (class FunctionDefinedPolygon).
@@ -101,7 +102,8 @@ class Optimization(SuperOptimization):
     """
 
     def __init__(self, base_script, wavelengths, fom, geometry, optimizer, hide_fdtd_cad = False, use_deps = True):
-        self.base_script = base_script
+        self.base_script = base_script if isinstance(base_script, BaseScript) else BaseScript(base_script)
+        self.wavelengths = wavelengths if isinstance(wavelengths, Wavelengths) else Wavelengths(wavelengths)
         self.wavelengths = wavelengths if isinstance(wavelengths, Wavelengths) else Wavelengths(wavelengths)
         self.fom = fom
         self.geometry = geometry
@@ -123,6 +125,9 @@ class Optimization(SuperOptimization):
         calling_file_name = os.path.abspath(frame[0].f_code.co_filename)
         Optimization.goto_new_opts_folder(calling_file_name, base_script)
         self.workingDir = os.getcwd()
+
+    def __del__(self):
+        Optimization.go_out_of_opts_folder()
 
     def run(self):
         self.initialize()
@@ -156,9 +161,9 @@ class Optimization(SuperOptimization):
 
         self.sim.fdtd.switchtolayout()
         self.sim.fdtd.deleteall()
-        self.sim.fdtd.eval(self.base_script)
+        self.base_script(self.sim.fdtd)
         Optimization.set_global_wavelength(self.sim, self.wavelengths)
-        Optimization.set_source_wavelength(self.sim, 'source', len(self.wavelengths))
+        Optimization.set_source_wavelength(self.sim, 'source', self.fom.multi_freq_src, len(self.wavelengths))
         self.sim.fdtd.setnamed('opt_fields', 'override global monitor settings', False)
         self.sim.fdtd.setnamed('opt_fields', 'spatial interpolation', 'none')
         Optimization.add_index_monitor(self.sim, 'opt_fields')
@@ -243,6 +248,9 @@ class Optimization(SuperOptimization):
             placed in the new folder.'''
 
         calling_file_path = os.path.dirname(calling_file_name) if os.path.isfile(calling_file_name) else os.path.dirname(os.getcwd())
+        calling_file_path_split = os.path.split(calling_file_path)
+        if calling_file_path_split[1].startswith('opts_'):
+            calling_file_path = calling_file_path_split[0]
         calling_file_path_entries = os.listdir(calling_file_path)
         opts_dir_numbers = [int(entry.split('_')[-1]) for entry in calling_file_path_entries if entry.startswith('opts_')]
         opts_dir_numbers.append(-1)
@@ -251,8 +259,15 @@ class Optimization(SuperOptimization):
         os.chdir(new_opts_dir)
         if os.path.isfile(calling_file_name):
             shutil.copy(calling_file_name, new_opts_dir)
-        with open('script_file.lsf','a') as file:
-            file.write(base_script.replace(';',';\n'))
+        if hasattr(base_script, 'script_str'):
+            with open('script_file.lsf','a') as file:
+                file.write(base_script.script_str.replace(';',';\n'))
+
+    @staticmethod
+    def go_out_of_opts_folder():
+        cwd_split = os.path.split(os.path.abspath(os.getcwd()))
+        if cwd_split[1].startswith('opts_'):
+            os.chdir(cwd_split[0])
 
     @staticmethod
     def add_index_monitor(sim, monitor_name):
@@ -304,7 +319,7 @@ class Optimization(SuperOptimization):
         sim.fdtd.setglobalsource('wavelength stop', wavelengths.max())
 
     @staticmethod
-    def set_source_wavelength(sim, source_name, freq_pts):
+    def set_source_wavelength(sim, source_name, multi_freq_src, freq_pts):
         if sim.fdtd.getnamednumber(source_name) != 1:
             raise UserWarning("a single object named '{}' must be defined in the base simulation.".format(source_name))
         if sim.fdtd.getnamed(source_name, 'override global source settings'):
@@ -312,11 +327,13 @@ class Optimization(SuperOptimization):
         sim.fdtd.setnamed(source_name, 'override global source settings', False)
         sim.fdtd.select(source_name)
         if sim.fdtd.haveproperty('multifrequency mode calculation'):
-            sim.fdtd.setnamed(source_name, 'multifrequency mode calculation', True)
-            sim.fdtd.setnamed(source_name, 'frequency points', freq_pts)
+            sim.fdtd.setnamed(source_name, 'multifrequency mode calculation', multi_freq_src)
+            if multi_freq_src:
+                sim.fdtd.setnamed(source_name, 'frequency points', freq_pts)
         elif sim.fdtd.haveproperty('multifrequency beam calculation'):
-            sim.fdtd.setnamed(source_name, 'multifrequency beam calculation', True)
-            sim.fdtd.setnamed(source_name, 'number of frequency points', freq_pts)
+            sim.fdtd.setnamed(source_name, 'multifrequency beam calculation', multi_freq_src)
+            if multi_freq_src:
+                sim.fdtd.setnamed(source_name, 'number of frequency points', freq_pts)
         else:
             raise UserWarning('unable to determine source type.')
 

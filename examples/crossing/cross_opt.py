@@ -43,7 +43,7 @@ def cross(params):
 polygon_geometry = FunctionDefinedPolygon(func = cross, initial_params = np.linspace(0.25e-6, 0.6e-6, 10), bounds = [(0.2e-6, 1e-6)]*10, z = 0.0, depth = 220.0e-9, eps_out = 1.44 ** 2, eps_in = 2.8 ** 2, edge_precision = 5, dx = 0.1e-9)
 
 ######## DEFINE FIGURE OF MERIT ########
-mode_fom = ModeMatch(monitor_name = 'fom', mode_number = 2, direction = 'Forward', target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1)
+mode_fom = ModeMatch(monitor_name = 'fom', mode_number = 2, direction = 'Forward',  multi_freq_src = True, target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1)
 
 ######## DEFINE OPTIMIZATION ALGORITHM ########
 scipy_optimizer = ScipyOptimizers(max_iter = 20, method = 'L-BFGS-B', scaling_factor = 1e6, pgtol = 1e-9)

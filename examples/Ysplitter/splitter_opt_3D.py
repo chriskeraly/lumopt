@@ -44,7 +44,7 @@ bounds = [(0.2e-6, 0.8e-6)] * initial_points_y.size
 geometry = FunctionDefinedPolygon(func = taper_splitter, initial_params = initial_points_y, bounds = bounds, z = 0.0, depth = 220e-9, eps_out = 1.44 ** 2, eps_in = silicon, edge_precision = 5, dx = 0.1e-9)
 
 ######## DEFINE FIGURE OF MERIT ########
-fom = ModeMatch(monitor_name = 'fom', mode_number = 1, direction = 'Forward', target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1)
+fom = ModeMatch(monitor_name = 'fom', mode_number = 1, direction = 'Forward', multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1)
 
 ######## DEFINE OPTIMIZATION ALGORITHM ########
 optimizer = ScipyOptimizers(max_iter = 20, method = 'L-BFGS-B', scaling_factor = 1e6, pgtol = 1e-9)

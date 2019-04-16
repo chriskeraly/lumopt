@@ -1,0 +1,97 @@
+deleteall;
+clear;
+
+## FDTD
+mesh_dx = 10.0e-9;
+mesh_dy = mesh_dz = mesh_dx;
+fdtd_span_x = 16.0*mesh_dx;
+fdtd_span_y = 50.0*mesh_dy;
+fdtd_span_z = 2.0*mesh_dz;
+background_index = 1.0;
+pml_layers = 12;
+sim_time = 5.0e-12;
+
+## GEOMETRY
+wg_width = 1.0*fdtd_span_y;
+wg_length = 2.0*fdtd_span_x;
+wg_height = wg_width;
+wg_gap = 10.0*mesh_dx;
+wg_material = '<Object defined dielectric>';
+wg_ref_index = 4.0;
+
+#INPUT WAVEGUIDE
+addrect;
+set('name','input wg');
+set('x span',wg_length);
+set('y span',wg_width);
+set('z span',wg_height);
+set('y',0.0);
+set('x',-(wg_length+wg_gap)/2.0);
+set('index',wg_ref_index);
+set('material',wg_material);
+
+#OUTPUT WAVEGUIDE
+addrect;
+set('name','output wg');
+set('x span',wg_length);
+set('y span',wg_width);
+set('z span',wg_height);
+set('y',0.0);
+set('x',(wg_length+wg_gap)/2.0);
+set('index',wg_ref_index);
+set('material',wg_material);
+
+## SOURCE
+addmode;
+set('direction','Forward');
+set('injection axis','x-axis');
+set('y',0.0);
+set('y span',fdtd_span_y);
+set('z',0.0);
+set('z span',fdtd_span_y);
+set('x',-wg_gap/2.0-2.0*mesh_dx);
+set('override global source settings',false);
+set('mode selection','fundamental TE mode');
+
+## FDTD
+addfdtd;
+set('simulation time',sim_time);
+set('background index',background_index);
+set('pml layers',pml_layers);
+set('mesh type','uniform');
+set('dx',mesh_dx);
+set('dy',mesh_dx);
+set('dz',mesh_dx);
+set('x',0.0);
+set('x span',fdtd_span_x);
+set('y',0.0);
+set('y span',fdtd_span_y);
+set('z',0.0);
+set('z span',fdtd_span_z);
+set('force symmetric y mesh',true);
+set('y min bc','Anti-Symmetric');
+set('y max bc','Metal');
+set('z min bc','Symmetric');
+set('z max bc','PMC');
+#set('dimension','2D');
+
+## MONITOR IN OPTIMIZABLE REGION
+addpower;
+set('name','opt_fields');
+set('monitor type','3D');
+set('x',0.0);
+set('x span',fdtd_span_x);
+set('y',0.0);
+set('y span',fdtd_span_y);
+set('z',0.0);
+set('z span',fdtd_span_z);
+
+## FOM FIELDS
+addpower;
+set('monitor type','2D X-normal');
+set('name','fom');
+set('x',wg_gap/2.0+2.0*mesh_dx);
+set('y',0.0);
+set('y span',fdtd_span_y);
+set('z',0.0);
+set('z span',fdtd_span_z);

@@ -1,0 +1,87 @@
+deleteall;
+clear;
+
+## FDTD
+mesh_dy = 20.0e-9;
+mesh_dx = mesh_dz = mesh_dy;
+fdtd_span_y = 80.0*mesh_dy;
+fdtd_span_x = 200.0*mesh_dx;
+fdtd_span_z = fdtd_span_x;
+background_index = 1.44;
+pml_layers = 32;
+sim_time = 10.0e-12;
+
+## GEOMETRY
+wg_length = 5.0*fdtd_span_y;
+wg_width = 35.0*mesh_dx;
+wg_height = wg_width;
+wg_gap = 50.0*mesh_dy;
+wg_material = '<Object defined dielectric>';
+wg_ref_index = 2.8;
+
+#WAVEGUIDE
+addrect;
+set('name','wg');
+set('y span',wg_length);
+set('x span',wg_width);
+set('z span',wg_height);
+set('x',0.0);
+set('y',0.0);
+set('index',wg_ref_index);
+set('material',wg_material);
+
+## SOURCE
+addmode;
+set('direction','Backward');
+set('injection axis','y-axis');
+set('x',0.0);
+set('x span',fdtd_span_x);
+set('z',0.0);
+set('z span',fdtd_span_x);
+set('y',wg_gap/2.0+12.0*mesh_dy);
+set('override global source settings',false);
+set('mode selection','fundamental TM mode');
+
+## FDTD
+addfdtd;
+set('simulation time',sim_time);
+set('background index',background_index);
+set('pml layers',pml_layers);
+set('mesh type','uniform');
+set('dy',mesh_dy);
+set('dx',mesh_dx);
+set('dz',mesh_dz);
+set('x',0.0);
+set('x span',fdtd_span_x);
+set('y',0.0);
+set('y span',fdtd_span_y);
+set('z',0.0);
+set('z span',fdtd_span_z);
+set('force symmetric y mesh',true);
+set('x min bc','Symmetric');
+set('x max bc','PMC');
+set('y min bc','PML');
+set('y max bc','PML');
+set('z min bc','Metal');
+set('z max bc','Metal');
+set('dimension','2D');
+
+## MONITOR IN OPTIMIZABLE REGION
+addpower;
+set('name','opt_fields');
+set('monitor type','2D Z-normal');
+set('x',0.0);
+set('x span',fdtd_span_x);
+set('y',0.0);
+set('y span',fdtd_span_y);
+set('z',0.0);
+
+## FOM FIELDS
+addpower;
+set('monitor type','2D Y-normal');
+set('name','FOM');
+set('y',-wg_gap/2.0-12.0*mesh_dy);
+set('x',0.0);
+set('x span',fdtd_span_x);
+set('z',0.0);
+set('z span',fdtd_span_z);

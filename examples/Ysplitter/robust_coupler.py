@@ -59,8 +59,8 @@ geometry_2 = FunctionDefinedPolygon(func = taper_splitter_2, initial_params = in
 
 ######## DEFINE FIGURE OF MERIT ########
 # Although we are optimizing for the same thing, two separate fom objects must be create
-fom_1 = ModeMatch(monitor_name = 'fom', mode_number = 3, direction = 'Forward', target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1)
-fom_2 = ModeMatch(monitor_name = 'fom', mode_number = 3, direction = 'Forward', target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1)
+fom_1 = ModeMatch(monitor_name = 'fom', mode_number = 3, direction = 'Forward', multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1)
+fom_2 = ModeMatch(monitor_name = 'fom', mode_number = 3, direction = 'Forward', multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1)
 
 ######## DEFINE OPTIMIZATION ALGORITHM ########
 #For the optimizer, they should all be set the same, but different objects. Eventually this will be improved
