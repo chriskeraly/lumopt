@@ -13,7 +13,7 @@ It is all here: https://lumopt.readthedocs.io/en/latest/
 
 ## Install
 
-Make sure you have the latest version of Lumerical installed (it won't work correctly with older versions), and that lumapi (the python api) works
+Make sure you have Python 3 and the latest version of Lumerical installed (it won't work correctly with older versions), and that lumapi (the python api) works.
 
 ```bash
 cd your/install/folder/
