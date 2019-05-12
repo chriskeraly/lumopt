@@ -35,7 +35,7 @@ release = u''
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-needs_sphinx = '1.6.9'
+needs_sphinx = '1.7.2'
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
