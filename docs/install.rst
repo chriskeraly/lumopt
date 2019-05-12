@@ -4,7 +4,7 @@ Installation and First Optimization
 Install
 -------
 
-LumOpt runs on python 2.7, with Lumerical xx or better.
+LumOpt runs on python 3, with the latest version of Lumerical.
 
 Choose your install directory and run
 
