@@ -20,7 +20,7 @@ if not python_api_path:
     elif current_platform == 'Darwin':
         default_api_path = '/Applications/Lumerical/FDTD/FDTD.app/Contents/MacOS/'
     elif current_platform == 'Linux':
-        default_api_path = '/opt/lumerical/FDTD/bin'
+        default_api_path = '/opt/lumerical/fdtd/api/python'
     default_api_path = os.path.normpath(default_api_path)
     if os.path.isfile(os.path.join(default_api_path, 'lumapi.py')):
         sys.path.append(default_api_path)
