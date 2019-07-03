@@ -2,7 +2,6 @@
     Copyright (c) 2019 Lumerical Inc. """
 
 import os
-import time
 import shutil
 import inspect
 import copy
@@ -12,6 +11,7 @@ import matplotlib.pyplot as plt
 from lumopt.utilities.base_script import BaseScript
 from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.utilities.simulation import Simulation
+from lumopt.utilities.fields import FieldsNoInterp
 from lumopt.utilities.gradients import GradientFields
 from lumopt.figures_of_merit.modematch import ModeMatch
 from lumopt.utilities.plotter import Plotter
@@ -40,7 +40,6 @@ class SuperOptimization(object):
         print('Initializing super optimization')
 
         self.optimizer = copy.deepcopy(self.optimizations[0].optimizer)
-        self.plotter=self.optimizations[0].plotter
 
         for optimization in self.optimizations:
             optimization.initialize()
@@ -66,20 +65,26 @@ class SuperOptimization(object):
             self.plotter.update(self)
 
         if hasattr(self.optimizer,'initialize'):
-            self.optimizer.initialize(start_params=start_params,callable_fom=callable_fom,callable_jac=callable_jac,bounds=bounds,plotting_function=plotting_function)
-
+            self.optimizer.initialize(start_params=start_params,
+                                      callable_fom=callable_fom,
+                                      callable_jac=callable_jac,
+                                      bounds=bounds,
+                                      plotting_function=plotting_function)
 
     def run(self):
         self.initialize()
+        self.plotter=self.optimizations[0].init_plotter()
+
         if self.plotter.movie:
             with self.plotter.writer.saving(self.plotter.fig, "optimization.mp4", 100):
                 self.optimizer.run()
         else:
             self.optimizer.run()
 
-        print('FINAL FOM = {}'.format(self.optimizer.fom_hist[-1]))
+        final_fom = np.abs(self.optimizer.fom_hist[-1])
+        print('FINAL FOM = {}'.format(final_fom))
         print('FINAL PARAMETERS = {}'.format(self.optimizer.params_hist[-1]))
-        return self.optimizer.fom_hist[-1],self.optimizer.params_hist[-1]
+        return final_fom,self.optimizer.params_hist[-1]
 
 
 class Optimization(SuperOptimization):
@@ -92,34 +97,36 @@ class Optimization(SuperOptimization):
 
         Parameters
         ----------
-        :param base_script: callable, file name or plain string with script to generate the base simulation.
-        :param wavelengths: wavelength value (float) or range (class Wavelengths) with the spectral range for all simulations.
-        :param fom:         figure of merit (class ModeMatch).
-        :param geometry:    optimizable geometry (class FunctionDefinedPolygon).
-        :param optimizer:   SciyPy minimizer wrapper (class ScipyOptimizers).
-        :param hide_fdtd:   flag run FDTD CAD in the background.
-        :param use_deps:    flag to use the numerical derivatives calculated directly from FDTD.
+        :param base_script:    callable, file name or plain string with script to generate the base simulation.
+        :param wavelengths:    wavelength value (float) or range (class Wavelengths) with the spectral range for all simulations.
+        :param fom:            figure of merit (class ModeMatch).
+        :param geometry:       optimizable geometry (class FunctionDefinedPolygon).
+        :param optimizer:      SciyPy minimizer wrapper (class ScipyOptimizers).
+        :param hide_fdtd_cad:  flag run FDTD CAD in the background.
+        :param use_deps:       flag to use the numerical derivatives calculated directly from FDTD.
+        :param plot_history:   plot the history of all parameters (and gradients)
+        :param store_all_simulations: Indicates if the project file for each iteration should be stored or not  
     """
 
-    def __init__(self, base_script, wavelengths, fom, geometry, optimizer, hide_fdtd_cad = False, use_deps = True):
+    def __init__(self, base_script, wavelengths, fom, geometry, optimizer, use_var_fdtd = False, hide_fdtd_cad = False, use_deps = True, plot_history = True, store_all_simulations = True):
         self.base_script = base_script if isinstance(base_script, BaseScript) else BaseScript(base_script)
-        self.wavelengths = wavelengths if isinstance(wavelengths, Wavelengths) else Wavelengths(wavelengths)
         self.wavelengths = wavelengths if isinstance(wavelengths, Wavelengths) else Wavelengths(wavelengths)
         self.fom = fom
         self.geometry = geometry
         self.optimizer = optimizer
+        self.use_var_fdtd = bool(use_var_fdtd)
         self.hide_fdtd_cad = bool(hide_fdtd_cad)
         self.use_deps = bool(use_deps)
+        self.plot_history = bool(plot_history)
+        self.store_all_simulations = store_all_simulations
+        self.unfold_symmetry = geometry.unfold_symmetry
+
         if self.use_deps:
             print("Accurate interface detection enabled")
 
-        self.plotter = Plotter()
-        self.forward_fields = None
-        self.adjoint_fields = None
-        self.gradients = None
+        self.plotter = None #< Initialize later, when we know how many parameters there are
         self.fomHist = []
         self.paramsHist = []
-        self.gradient_fields = None
 
         frame = inspect.stack()[1]
         calling_file_name = os.path.abspath(frame[0].f_code.co_filename)
@@ -129,96 +136,177 @@ class Optimization(SuperOptimization):
     def __del__(self):
         Optimization.go_out_of_opts_folder()
 
+    def init_plotter(self):
+        if self.plotter is None:
+            self.plotter = Plotter(movie = True, plot_history = self.plot_history)
+        return self.plotter
+
     def run(self):
         self.initialize()
+
+        self.init_plotter()
+        
         if self.plotter.movie:
             with self.plotter.writer.saving(self.plotter.fig, "optimization.mp4", 100):
                 self.optimizer.run()
         else:
             self.optimizer.run()
-        print('FINAL FOM = {}'.format(self.optimizer.fom_hist[-1]))
+
+        ## For topology optimization we are not done yet ... 
+        if hasattr(self.geometry,'progress_continuation'):
+            print(' === Starting Binarization Phase === ')
+            self.optimizer.max_iter=20
+            while self.geometry.progress_continuation():
+                self.optimizer.reset_start_params(self.optimizer.params_hist[-1], 0.05) #< Run the scaling analysis again
+                self.optimizer.run()
+
+        final_fom = np.abs(self.optimizer.fom_hist[-1])
+        print('FINAL FOM = {}'.format(final_fom))
         print('FINAL PARAMETERS = {}'.format(self.optimizer.params_hist[-1]))
-        return self.optimizer.fom_hist[-1],self.optimizer.params_hist[-1]
+        return final_fom,self.optimizer.params_hist[-1]
 
     def initialize(self):
-        """ Performs all steps that need to be carried only once at the beginning of the optimization. """
-
-        start_params = self.geometry.get_current_params()
-        callable_fom = self.callable_fom
-        callable_jac = self.callable_jac
-        bounds = np.array(self.geometry.bounds)
-        def plotting_function():
-            self.plotter.update(self)
-        self.optimizer.initialize(start_params = start_params, callable_fom = callable_fom, callable_jac = callable_jac, bounds = bounds, plotting_function = plotting_function)
-        self.sim = Simulation(self.workingDir, self.hide_fdtd_cad)
-
-    def make_forward_sim(self, geometry = None):
-        """ Creates the forward simulation by adding the geometry to the base simulation and adding a refractive index monitor overlaping
-            with the 'opt_fields' monitor. The 'source' object is modified to follow the global frequency settings.
-
-            :geometry: the current gometry under optimization.
+        """ 
+            Performs all steps that need to be carried only once at the beginning of the optimization. 
         """
 
-        self.sim.fdtd.switchtolayout()
-        self.sim.fdtd.deleteall()
+        # FDTD CAD
+        self.sim = Simulation(self.workingDir, self.use_var_fdtd, self.hide_fdtd_cad)
+        # FDTD model
         self.base_script(self.sim.fdtd)
         Optimization.set_global_wavelength(self.sim, self.wavelengths)
         Optimization.set_source_wavelength(self.sim, 'source', self.fom.multi_freq_src, len(self.wavelengths))
         self.sim.fdtd.setnamed('opt_fields', 'override global monitor settings', False)
         self.sim.fdtd.setnamed('opt_fields', 'spatial interpolation', 'none')
         Optimization.add_index_monitor(self.sim, 'opt_fields')
+        
         if self.use_deps:
             Optimization.set_use_legacy_conformal_interface_detection(self.sim, False)
-        time.sleep(0.1)
-        if geometry is None:
-            self.geometry.add_geo(self.sim, params = None, only_update = False)
-        else:
-            geometry.add_geo(self.sim)
-        self.fom.add_to_sim(self.sim)
 
-    def run_forward_solves(self):
+        # Optimizer
+        start_params = self.geometry.get_current_params()
+
+        # We need to add the geometry first because it adds the mesh override region
+        self.geometry.add_geo(self.sim, start_params, only_update = False)
+
+        # If we don't have initial parameters yet, try to extract them from the simulation (this is mostly for topology optimization)
+        if start_params is None:
+            self.geometry.extract_parameters_from_simulation(self.sim)
+            start_params = self.geometry.get_current_params()
+
+        callable_fom = self.callable_fom
+        callable_jac = self.callable_jac
+        bounds = np.array(self.geometry.bounds)
+
+        def plotting_function():
+            self.plotter.update(self)
+            
+            if hasattr(self.geometry,'to_file'):
+                self.geometry.to_file('parameters_{}.npz'.format(self.optimizer.iteration))
+
+            with open('convergence_report.txt','a') as f:
+                f.write('{}, {}'.format(self.optimizer.iteration,self.optimizer.fom_hist[-1]))
+                if hasattr(self.geometry,'write_status'):
+                    self.geometry.write_status(f) 
+                f.write('\n')
+
+
+        self.fom.initialize(self.sim)
+
+        self.optimizer.initialize(start_params = start_params, callable_fom = callable_fom, callable_jac = callable_jac, bounds = bounds, plotting_function = plotting_function)
+      
+
+    def make_forward_sim(self, params):
+        self.sim.fdtd.switchtolayout()
+        self.geometry.update_geometry(params, self.sim)
+        self.geometry.add_geo(self.sim, params = None, only_update = True)
+        self.sim.fdtd.setnamed('source', 'enabled', True)
+        self.fom.make_forward_sim(self.sim)
+
+    def run_forward_solves(self, params):
         """ Generates the new forward simulations, runs them and computes the figure of merit and forward fields. """
 
         print('Running forward solves')
-        self.make_forward_sim()
-        self.sim.run(name = 'forward', iter = self.optimizer.iteration)
-        self.forward_fields = get_fields(self.sim.fdtd, monitor_name = 'opt_fields', get_eps = True, get_D = True, get_H = True, nointerpolation = True)
+        self.make_forward_sim(params)
+        iter = self.optimizer.iteration if self.store_all_simulations else 0
+        self.sim.run(name = 'forward', iter = iter)
+       
+        get_eps = True
+        get_D = not self.use_deps
+        nointerpolation = not self.geometry.use_interpolation()
+        
+        self.forward_fields = get_fields(self.sim.fdtd,
+                                         monitor_name = 'opt_fields',
+                                         field_result_name = 'forward_fields',
+                                         get_eps = get_eps,
+                                         get_D = get_D,
+                                         get_H = False,
+                                         nointerpolation = nointerpolation,
+                                         unfold_symmetry = self.unfold_symmetry)
         fom = self.fom.get_fom(self.sim)
+
+        if self.store_all_simulations:
+            self.sim.remove_data_and_save() #< Remove the data from the file to save disk space. TODO: Make optional?
+
         self.fomHist.append(fom)
         print('FOM = {}'.format(fom))
         return fom
 
-    def run_adjoint_solves(self):
+    def make_adjoint_sim(self, params):
+        self.sim.fdtd.switchtolayout()
+        assert np.allclose(params, self.geometry.get_current_params())
+        self.geometry.add_geo(self.sim, params = None, only_update = True)
+        self.sim.fdtd.setnamed('source', 'enabled', False)
+        self.fom.make_adjoint_sim(self.sim)
+
+    def run_adjoint_solves(self, params):
         """ Generates the adjoint simulations, runs them and extacts the adjoint fields. """
 
+        has_forward_fields = hasattr(self,'forward_fields') and hasattr(self.forward_fields, 'E')
+        params_changed = not np.allclose(params, self.geometry.get_current_params())
+        if not has_forward_fields or params_changed:
+            fom = self.run_forward_solves(params)
+
         print('Running adjoint solves')
-        self.make_forward_sim()
-        self.sim.fdtd.selectpartial('source')
-        self.sim.fdtd.delete()
-        self.fom.add_adjoint_sources(self.sim)
-        self.sim.run(name = 'adjoint', iter = self.optimizer.iteration)
-        self.adjoint_fields = get_fields(self.sim.fdtd, monitor_name = 'opt_fields', get_eps = True, get_D = True, get_H = True, nointerpolation = True)
-        self.adjoint_fields.scale(3, self.fom.get_adjoint_field_scaling(self.sim))
+        self.make_adjoint_sim(params)
+
+        iter = self.optimizer.iteration if self.store_all_simulations else 0
+        self.sim.run(name = 'adjoint', iter = iter)
+        
+        get_eps = not self.use_deps
+        get_D = not self.use_deps
+        nointerpolation = not self.geometry.use_interpolation()
+
+        #< JN: Try on CAD
+        self.adjoint_fields = get_fields(self.sim.fdtd,
+                                         monitor_name = 'opt_fields',
+                                         field_result_name = 'adjoint_fields',
+                                         get_eps = get_eps,
+                                         get_D = get_D,
+                                         get_H = False,
+                                         nointerpolation = nointerpolation,
+                                         unfold_symmetry = self.unfold_symmetry)
+        self.adjoint_fields.scaling_factor = self.fom.get_adjoint_field_scaling(self.sim)
+
+        self.adjoint_fields.scale(3, self.adjoint_fields.scaling_factor)
+
+        if self.store_all_simulations:
+            self.sim.remove_data_and_save() #< Remove the data from the file to save disk space. TODO: Make optional?
 
     def callable_fom(self, params):
         """ Function for the optimizers to retrieve the figure of merit.
-            :param params:  geometry parameters.
-            :returns: figure of merit.
+            :param params:  optimization parameters.
+            :param returns: figure of merit.
         """
-
-        self.geometry.update_geometry(params)
-        fom = self.run_forward_solves()
-        return fom
+        return self.run_forward_solves(params)
 
     def callable_jac(self, params):
         """ Function for the optimizer to extract the figure of merit gradient.
-            :params:  geometry paramaters, currently not used.
-            :returns: partial derivative of the figure of merit with respect to each optimization parameter.
+            :param params:  optimization paramaters.
+            :param returns: partial derivative of the figure of merit with respect to each optimization parameter.
         """
-
-        self.run_adjoint_solves()
-        gradients = self.calculate_gradients()
-        return np.array(gradients)
+        self.run_adjoint_solves(params)
+        return self.calculate_gradients()
 
     def calculate_gradients(self):
         """ Calculates the gradient of the figure of merit (FOM) with respect to each of the optimization parameters.
@@ -229,16 +317,20 @@ class Optimization(SuperOptimization):
         """
 
         print('Calculating gradients')
+        fdtd = self.sim.fdtd
         self.gradient_fields = GradientFields(forward_fields = self.forward_fields, adjoint_fields = self.adjoint_fields)
+        self.sim.fdtd.switchtolayout()
         if self.use_deps:
-            self.make_forward_sim()
-            d_eps = self.geometry.get_d_eps(self.sim)
-            fom_partial_derivs_vs_wl, wl = self.gradient_fields.spatial_gradient_integral(d_eps)
-            self.gradients = self.fom.fom_gradient_wavelength_integral(fom_partial_derivs_vs_wl, wl)
+            self.geometry.d_eps_on_cad(self.sim)
+            fom_partial_derivs_vs_wl = GradientFields.spatial_gradient_integral_on_cad(self.sim, 'forward_fields', 'adjoint_fields', self.adjoint_fields.scaling_factor)
+            self.gradients = self.fom.fom_gradient_wavelength_integral(fom_partial_derivs_vs_wl.transpose(), self.forward_fields.wl)
         else:
-            fom_partial_derivs_vs_wl = self.geometry.calculate_gradients(self.gradient_fields)
-            wl = self.gradient_fields.forward_fields.wl
-            self.gradients = self.fom.fom_gradient_wavelength_integral(fom_partial_derivs_vs_wl.transpose(), wl)
+            if hasattr(self.geometry,'calculate_gradients_on_cad'):
+                fom_partial_derivs_vs_wl = self.geometry.calculate_gradients_on_cad(self.sim, 'forward_fields', 'adjoint_fields', self.adjoint_fields.scaling_factor)
+                self.gradients = self.fom.fom_gradient_wavelength_integral(fom_partial_derivs_vs_wl, self.forward_fields.wl)
+            else:
+                fom_partial_derivs_vs_wl = self.geometry.calculate_gradients(self.gradient_fields)
+                self.gradients = self.fom.fom_gradient_wavelength_integral(fom_partial_derivs_vs_wl, self.forward_fields.wl)
         return self.gradients
 
     @staticmethod
@@ -275,7 +367,12 @@ class Optimization(SuperOptimization):
         if sim.fdtd.getnamednumber(monitor_name) != 1:
             raise UserWarning("a single object named '{}' must be defined in the base simulation.".format(monitor_name))
         index_monitor_name = monitor_name + '_index'
-        sim.fdtd.addindex()
+        if sim.fdtd.getnamednumber('FDTD') == 1:
+            sim.fdtd.addindex()
+        elif sim.fdtd.getnamednumber('varFDTD') == 1:
+            sim.fdtd.addeffectiveindex()
+        else:
+            raise UserWarning('no FDTD or varFDTD solver object could be found.')
         sim.fdtd.set('name', index_monitor_name)
         sim.fdtd.setnamed(index_monitor_name, 'override global monitor settings', True)
         sim.fdtd.setnamed(index_monitor_name, 'frequency points', 1)
@@ -334,15 +431,19 @@ class Optimization(SuperOptimization):
             sim.fdtd.setnamed(source_name, 'multifrequency beam calculation', multi_freq_src)
             if multi_freq_src:
                 sim.fdtd.setnamed(source_name, 'number of frequency points', freq_pts)
-        else:
-            raise UserWarning('unable to determine source type.')
 
     @staticmethod
     def set_use_legacy_conformal_interface_detection(sim, flagVal):
-        sim.fdtd.select('FDTD')
-        has_legacy_prop = bool(sim.fdtd.haveproperty('use legacy conformal interface detection'))
-        if has_legacy_prop:
-            sim.fdtd.setnamed('FDTD', 'use legacy conformal interface detection', flagVal)
-            sim.fdtd.setnamed('FDTD', 'conformal meshing refinement', 51)
+        if sim.fdtd.getnamednumber('FDTD') == 1:
+            sim.fdtd.select('FDTD')
+        elif sim.fdtd.getnamednumber('varFDTD') == 1:
+            sim.fdtd.select('varFDTD')
+        else:
+            raise UserWarning('no FDTD or varFDTD solver object could be found.')
+        if bool(sim.fdtd.haveproperty('use legacy conformal interface detection')):
+            sim.fdtd.set('use legacy conformal interface detection', flagVal)
+            sim.fdtd.set('conformal meshing refinement', 51)
+            sim.fdtd.set('meshing tolerance', 1.0/1.134e14)
         else:
             raise UserWarning('install a more recent version of FDTD or the permittivity derivatives will not be accurate.')
+            

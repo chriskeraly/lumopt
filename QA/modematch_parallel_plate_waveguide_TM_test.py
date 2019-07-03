@@ -1,5 +1,4 @@
-""" Copyright chriskeraly
-    Copyright (c) 2019 Lumerical Inc. """
+""" Copyright (c) 2019 Lumerical Inc. """
 
 import sys
 sys.path.append(".")
@@ -28,13 +27,13 @@ class TestModeMatchParallelPlateWaveguideTM(TestCase):
         # base script
         self.base_script = load_from_lsf(os.path.join(self.file_dir, 'modematch_parallel_plate_waveguide_TM_base.lsf'))
         # bandwidth        
-        self.wavelengths = Wavelengths(start = 1540e-9, stop = 1560e-9, points = 3)
+        self.wavelengths = Wavelengths(start = 1540e-9, stop = 1560e-9, points = 11)
         # simulation
-        self.sim = Simulation(workingDir = self.file_dir, hide_fdtd_cad = True)
+        self.sim = Simulation(workingDir = self.file_dir, use_var_fdtd = False, hide_fdtd_cad = True)
         self.sim.fdtd.eval(self.base_script)
         Optimization.set_global_wavelength(self.sim, self.wavelengths)
         # reference
-        self.ref_fom = 0.6643986
+        self.ref_fom = 0.65161635
 
     def test_forward_injection_in_3D(self):
         """ Test forward injection in 3D with mode source in vacuum. """
@@ -46,10 +45,11 @@ class TestModeMatchParallelPlateWaveguideTM(TestCase):
                              norm_p = 1)
         Optimization.set_source_wavelength(self.sim, 'source', self.fom.multi_freq_src, len(self.wavelengths))
         self.sim.fdtd.setnamed('FDTD','dimension','3D')
-        self.fom.add_to_sim(self.sim)
+        self.fom.initialize(self.sim)
+        self.fom.make_forward_sim(self.sim)
         self.sim.run(name = 'modematch_forward_injection_in_3D', iter = 0)
         FOM = self.fom.get_fom(self.sim)
-        self.assertAlmostEqual(FOM, self.ref_fom, 5)
+        self.assertAlmostEqual(FOM, self.ref_fom, 4)
 
     def test_backward_injection_in_3D(self):
         """ Test backward injection in 3D with mode source in dielectric region. """
@@ -64,10 +64,11 @@ class TestModeMatchParallelPlateWaveguideTM(TestCase):
         self.sim.fdtd.setnamed('source', 'x', -self.sim.fdtd.getnamed('source','x'))
         self.sim.fdtd.setnamed('source','direction','Backward')
         self.sim.fdtd.setnamed('figure_of_merit','x', -self.sim.fdtd.getnamed('figure_of_merit','x'))
-        self.fom.add_to_sim(self.sim)
+        self.fom.initialize(self.sim)
+        self.fom.make_forward_sim(self.sim)
         self.sim.run(name = 'modematch_backward_injection_in_3D', iter = 1)
         FOM = self.fom.get_fom(self.sim)
-        self.assertAlmostEqual(FOM, self.ref_fom, 5)
+        self.assertAlmostEqual(FOM, self.ref_fom, 4)
 
     def test_forward_injection_in_2D(self):
         """ Test forward injection in 2D with mode source in vacuum. """
@@ -79,10 +80,11 @@ class TestModeMatchParallelPlateWaveguideTM(TestCase):
                              norm_p = 1)
         Optimization.set_source_wavelength(self.sim, 'source', self.fom.multi_freq_src, len(self.wavelengths))
         self.sim.fdtd.setnamed('FDTD','dimension','2D')
-        self.fom.add_to_sim(self.sim)
+        self.fom.initialize(self.sim)
+        self.fom.make_forward_sim(self.sim)
         self.sim.run(name = 'modematch_forward_injection_in_2D', iter = 2)
         FOM = self.fom.get_fom(self.sim)
-        self.assertAlmostEqual(FOM, self.ref_fom, 5)
+        self.assertAlmostEqual(FOM, self.ref_fom, 4)
 
     def test_no_forward_injection_in_2D(self):
         """ Test no forward injection in 2D with mode source in vacuum. """
@@ -94,7 +96,8 @@ class TestModeMatchParallelPlateWaveguideTM(TestCase):
                              norm_p = 1)
         Optimization.set_source_wavelength(self.sim, 'source', self.fom.multi_freq_src, len(self.wavelengths))
         self.sim.fdtd.setnamed('FDTD','dimension','2D')
-        self.fom.add_to_sim(self.sim)
+        self.fom.initialize(self.sim)
+        self.fom.make_forward_sim(self.sim)
         self.sim.run(name = 'modematch_no_forward_injection_in_2D', iter = 3)
         FOM = self.fom.get_fom(self.sim)
         self.assertAlmostEqual(FOM, 0.0, 5)
@@ -112,10 +115,11 @@ class TestModeMatchParallelPlateWaveguideTM(TestCase):
         self.sim.fdtd.setnamed('source', 'x', -self.sim.fdtd.getnamed('source','x'))
         self.sim.fdtd.setnamed('source','direction','Backward')
         self.sim.fdtd.setnamed('figure_of_merit','x', -self.sim.fdtd.getnamed('figure_of_merit','x'))
-        self.fom.add_to_sim(self.sim)
+        self.fom.initialize(self.sim)
+        self.fom.make_forward_sim(self.sim)
         self.sim.run(name = 'modematch_backward_injection_in_2D', iter = 4)
         FOM = self.fom.get_fom(self.sim)
-        self.assertAlmostEqual(FOM, self.ref_fom, 5)
+        self.assertAlmostEqual(FOM, self.ref_fom, 4)
 
 if __name__ == "__main__":
     run([__file__])

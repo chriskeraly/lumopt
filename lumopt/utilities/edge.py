@@ -2,7 +2,6 @@
     Copyright (c) 2019 Lumerical Inc. """
 
 import numpy as np
-from lumopt.utilities.scipy_wrappers import trapz1D,trapz3D,trapz2D
 
 class Edge(object):
     '''This class descibes an edge of an extruded 2D geometry'''

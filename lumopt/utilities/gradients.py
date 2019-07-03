@@ -6,8 +6,7 @@ import scipy as sp
 import scipy.constants
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from lumopt.utilities.scipy_wrappers import wrapped_GridInterpolator
-from lumopt.utilities.scipy_wrappers import trapz3D
+import lumapi
 
 class GradientFields(object):
     """ Combines the forward and adjoint fields (collected by the constructor) to generate the integral used
@@ -25,6 +24,19 @@ class GradientFields(object):
         result = sum(2.0 * sp.constants.epsilon_0 * self.forward_fields.getfield(x,y,z,wl) * self.adjoint_fields.getfield(x,y,z,wl))
         return np.real(result) if real else result
 
+    def get_field_product_E_forward_adjoint(self):
+        
+        return self.forward_fields.E*self.adjoint_fields.E
+
+
+    def get_forward_dot_adjoint_center(self):
+        prod = np.sum(2.0 * sp.constants.epsilon_0 * self.get_field_product_E_forward_adjoint(),axis=-1)
+        sz = prod.shape
+        centerZ = int(sz[2]/2)
+        centerLambda = int(sz[3]/2)
+        
+        return np.transpose(np.real(prod[:,:,centerZ,centerLambda]))
+        
     def plot(self, fig, ax_forward, ax_gradients, original_grid = True):
         ax_forward.clear()
         self.forward_fields.plot(ax_forward, title = 'Forward Fields', cmap = 'Blues')
@@ -90,18 +102,19 @@ class GradientFields(object):
         
         return gradient_field
 
-    def spatial_gradient_integral(self, d_epses):
-        ''' Uses permittivity gradients to calculates the gradient of the figure of merit (FOM) with respect to 
-            each of the optimization parameters. The permittivity gradients can be obtained from FDTD.
-
-            :d_epses: list of arrays containing the partial derivatives of the permittivity w.r.t. each optimization parameter.
-        '''
-        fields = 2.0 * sp.constants.epsilon_0 * self.forward_fields.E * self.adjoint_fields.E
-        x, y, z, wl = self.forward_fields.x, self.forward_fields.y, self.forward_fields.z, self.forward_fields.wl
-        num_opt_param = len(d_epses)
-        partial_fom_derivs_vs_lambda = np.zeros((wl.size, num_opt_param), dtype = 'complex')
-        for i in range(num_opt_param):
-            d_eps = np.take(d_epses[i], indices = 0, axis = 3) # permittivity derivatives assumed constant over wavelength
-            for j in range(wl.size):
-                partial_fom_derivs_vs_lambda[j, i] = trapz3D(np.sum(np.take(fields, indices = j, axis = 3) * d_eps, axis = -1), x, y, z)
-        return partial_fom_derivs_vs_lambda, wl
+    @staticmethod
+    def spatial_gradient_integral_on_cad(sim, forward_fields, adjoint_fields, wl_scaling_factor):
+        lumapi.putMatrix(sim.fdtd.handle, "wl_scaling_factor", wl_scaling_factor)
+        sim.fdtd.eval("gradient_fields = 2.0 * eps0 * {0}.E.E * {1}.E.E;".format(forward_fields, adjoint_fields) +
+                      "num_opt_params = length(d_epses);" +
+                      "num_wl_pts = length({0}.E.lambda);".format(forward_fields) +
+                      "partial_fom_derivs_vs_lambda = matrix(num_wl_pts, num_opt_params);" +
+                      "for(param_idx = [1:num_opt_params]){"+
+                      "    for(wl_idx = [1:num_wl_pts]){" +
+                      "        spatial_integrand = pinch(sum(gradient_fields(:,:,:,wl_idx,:) * wl_scaling_factor(wl_idx) * d_epses{param_idx}, 5), 4);" +
+                      "        partial_fom_derivs_vs_lambda(wl_idx, param_idx) = integrate2(spatial_integrand, [1,2,3], {0}.E.x, {0}.E.y, {0}.E.z);".format(forward_fields) +
+                      "    }" +
+                      "}")
+        partial_fom_derivs_vs_lambda = lumapi.getVar(sim.fdtd.handle, 'partial_fom_derivs_vs_lambda')
+        sim.fdtd.eval("clear(param_idx, wl_idx, num_opt_params, num_wl_pts, spatial_integrand, gradient_fields, wl_scaling_factor, partial_fom_derivs_vs_lambda, d_epses, {0}, {1});".format(forward_fields, adjoint_fields))
+        return partial_fom_derivs_vs_lambda

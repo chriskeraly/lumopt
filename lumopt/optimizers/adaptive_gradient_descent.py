@@ -22,7 +22,8 @@ class AdaptiveGradientDescent(Optimizer):
         :param dx_regrowth_factor: by how much dx will be increased at each iteration.
         :param max_iter:           maximum number of iterations to run.
         :param all_params_equal:   if true, all parameters will be changed by +/- dx depending on the sign of their associated shape derivative.
-        :param scaling_factor:     scaling factor to bring the optimization variables close to one.
+        :param scaling_factor:     scalar or vector of the same length as the optimization parameters; typically used to scale the optimization
+                                   parameters so that they have magnitudes in the range zero to one.
     """
 
     def __init__(self, max_dx, min_dx, max_iter, dx_regrowth_factor, all_params_equal, scaling_factor):
@@ -44,18 +45,19 @@ class AdaptiveGradientDescent(Optimizer):
             new_params = self.current_params + self.calculate_change(gradients, self.dx)
             new_params = self.enforce_bounds(new_params)
             new_fom = self.callable_fom(new_params)
-            while new_fom < self.fom_hist[-1] and self.dx > self.min_dx:
+            while new_fom < self.fom_hist[-1] and np.any(self.dx > self.min_dx):
                 self.reduce_step_size()
                 new_params = self.current_params + self.calculate_change(gradients, self.dx)
                 new_params = self.enforce_bounds(new_params)
                 new_fom = self.callable_fom(new_params)
-            if self.dx == self.min_dx:
+            if np.allclose(self.dx, self.min_dx):
                 print('dx at mindx: forcing update')
             self.current_params = new_params
             self.current_fom = new_fom
             if self.iteration != self.max_iter:
                 gradients = self.callable_jac(self.current_params)
             self.callback()
+        return {'fun': self.current_fom, 'jac': gradients*self.scaling_factor, 'x': self.current_params/self.scaling_factor, 'nit':self.iteration}
 
     def calculate_change(self, gradients, dx):
         if self.all_params_equal:

@@ -23,7 +23,8 @@ class FixedStepGradientDescent(Optimizer):
         :param max_iter:         maximum number of iterations to run.
         :param all_params_equal: if true, all parameters will be changed by +/- dx depending on the sign of their associated shape derivative.
         :param noise_magnitude:  amplitude of the noise.
-        :param scaling_factor:   scaling factor to bring the optimization variables closer to 1
+        :param scaling_factor:   scalar or vector of the same length as the optimization parameters; typically used to scale the optimization
+                                 parameters so that they have magnitudes in the range zero to one.
     """
 
     def __init__(self, max_dx, max_iter, all_params_equal, noise_magnitude, scaling_factor):
@@ -45,6 +46,7 @@ class FixedStepGradientDescent(Optimizer):
             self.current_params = self.enforce_bounds(self.current_params)
             self.predictedchange_hist.append(sum(gradients * change))
             self.callback()
+        return {'fun': self.current_fom, 'jac': gradients*self.scaling_factor, 'x': self.current_params/self.scaling_factor, 'nit':self.iteration}
 
     def calculate_change(self, gradients, dx):
         if self.all_params_equal:

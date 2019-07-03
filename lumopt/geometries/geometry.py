@@ -4,12 +4,15 @@
 import sys
 import numpy as np
 import lumapi
-from lumopt.utilities.scipy_wrappers import trapz3D
 
 class Geometry(object):
 
     self_update=False
+    unfold_symmetry = True #< By default, we do want monitors to unfold symmetry
 
+    def use_interpolation(self):
+        return False
+        
     def __init__(self,geometries,operation):
         self.geometries=geometries
         self.operation=operation
@@ -18,6 +21,7 @@ class Geometry(object):
         if self.operation=='add':
             self.bounds=np.concatenate((np.array(geometries[0].bounds),np.array(geometries[1].bounds)))
         self.dx=max([geo.dx for geo in self.geometries])
+
         return
 
     def __add__(self,other):
@@ -39,17 +43,17 @@ class Geometry(object):
             geometry.initialize(wavelengths,opt)
         self.opt=opt
 
-    def update_geometry(self,params):
+    def update_geometry(self, params, sim = None):
         if self.operation=='mul':
             for geometry in self.geometries:
-                geometry.update_geometry(params)
+                geometry.update_geometry(params,sim)
 
         if self.operation=='add':
             n1=len(self.geometries[0].get_current_params())
-            self.geometries[0].update_geometry(params[:n1])
-            self.geometries[1].update_geometry(params[n1:])
+            self.geometries[0].update_geometry(params[:n1],sim)
+            self.geometries[1].update_geometry(params[n1:],sim)
 
-    def calculate_gradients(self, gradient_fields, wavelength):
+    def calculate_gradients(self, gradient_fields):
         derivs1 = np.array(self.geometries[0].calculate_gradients(gradient_fields))
         derivs2 = np.array(self.geometries[1].calculate_gradients(gradient_fields))
 
@@ -68,35 +72,34 @@ class Geometry(object):
     def plot(self,*args):
         return False
 
-    def update_geo_in_sim(self, sim, params):
+    def add_geo(self, sim, params, only_update):
         for geometry in self.geometries:
-            geometry.update_geo_in_sim(sim, params)
+            geometry.add_geo(sim, params, only_update)
 
     @staticmethod
-    def get_eps_from_sim(fdtd, monitor_name = 'opt_fields'):
+    def get_eps_from_index_monitor(fdtd, eps_result_name, monitor_name = 'opt_fields'):
         index_monitor_name = monitor_name + '_index'
-        index_dict = fdtd.getresult(index_monitor_name, 'index')
-        fields_eps_x = np.power(index_dict['index_x'], 2)
-        fields_eps_y = np.power(index_dict['index_y'], 2)
-        fields_eps_z = np.power(index_dict['index_z'], 2)
-        fields_eps = np.stack((fields_eps_x, fields_eps_y, fields_eps_z), axis = -1)
-        return fields_eps, index_dict['x'], index_dict['y'], index_dict['z'], index_dict['lambda']
+        fdtd.eval("{0}_data_set = getresult('{0}','index');".format(index_monitor_name) +
+                  "{0} = matrix(length({1}_data_set.x), length({1}_data_set.y), length({1}_data_set.z), length({1}_data_set.f), 3);".format(eps_result_name, index_monitor_name) +
+                  "{0}(:, :, :, :, 1) = {1}_data_set.index_x^2;".format(eps_result_name, index_monitor_name) +
+                  "{0}(:, :, :, :, 2) = {1}_data_set.index_y^2;".format(eps_result_name, index_monitor_name) +
+                  "{0}(:, :, :, :, 3) = {1}_data_set.index_z^2;".format(eps_result_name, index_monitor_name) +
+                  "clear({0}_data_set);".format(index_monitor_name))
 
-    def get_eps_update(self, sim, params):
-        self.update_geo_in_sim(sim, params)
-        eps, x, y, z, wl = Geometry.get_eps_from_sim(sim.fdtd)
-        return eps
-
-    def get_d_eps(self, sim):
-        current_eps, x, y, z, wl = Geometry.get_eps_from_sim(sim.fdtd)
+    def d_eps_on_cad(self, sim):
+        Geometry.get_eps_from_index_monitor(sim.fdtd, 'original_eps_data')
         current_params = self.get_current_params()
-        d_epses = list()
+        sim.fdtd.eval("d_epses = cell({});".format(current_params.size))
+        lumapi.putDouble(sim.fdtd.handle, "dx", self.dx)
         print('Getting d eps: dx = ' + str(self.dx))
+        sim.fdtd.redrawoff()
         for i,param in enumerate(current_params):
             d_params = current_params.copy()
             d_params[i] = param + self.dx
-            d_eps = (self.get_eps_update(sim,d_params) - current_eps) / self.dx
-            d_epses.append(d_eps)
+            self.add_geo(sim, d_params, only_update = True)
+            Geometry.get_eps_from_index_monitor(sim.fdtd, 'current_eps_data')
+            sim.fdtd.eval("d_epses{"+str(i+1)+"} = (current_eps_data - original_eps_data) / dx;")
             sys.stdout.write('.'), sys.stdout.flush()
+        sim.fdtd.eval("clear(original_eps_data, current_eps_data, dx);")
         print('')
-        return d_epses
+        sim.fdtd.redrawon()

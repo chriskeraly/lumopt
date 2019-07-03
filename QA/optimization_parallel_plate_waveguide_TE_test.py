@@ -42,7 +42,7 @@ class TestOptimizationParallelPlateWaveguideTE(TestCase):
         initial_points_y = np.array([0.01 * self.mesh_del, 1.75 * self.mesh_del])
         def wall(param = initial_points_y):
             assert param.size == 2, "walls defined by two points."
-            self.wg_gap = 10.0 * self.mesh_del # must be kept in sych
+            self.wg_gap = 10.0 * self.mesh_del # must be kept in synch
             points_x = 0.5 * np.array([-self.wg_gap, self.wg_gap, self.wg_gap, -self.wg_gap])
             points_y = np.array([-param[0], -param[1], param[1], param[0]])
             polygon_points = [(x, y) for x, y in zip(points_x, points_y)]
@@ -52,9 +52,9 @@ class TestOptimizationParallelPlateWaveguideTE(TestCase):
         self.geometry = FunctionDefinedPolygon(func = wall, 
                                                initial_params = initial_points_y, 
                                                bounds = bounds,
-                                               z = 0.0, # must be kept in sych
-                                               depth = self.wg_width, # must be kept in sych
-                                               eps_out = 1.0 ** 2, # must be kept in sych with
+                                               z = 0.0, # must be kept in synch
+                                               depth = self.wg_width, # must be kept in synch
+                                               eps_out = 1.0 ** 2, # must be kept in synch with
                                                eps_in = Material(base_epsilon = 4.0 ** 2, name = '<Object defined dielectric>', mesh_order = 1), # must be kept in sych with
                                                edge_precision = 50,
                                                dx = 1.0e-10)
@@ -68,8 +68,11 @@ class TestOptimizationParallelPlateWaveguideTE(TestCase):
         # Scipy optimizer
         self.optimizer = ScipyOptimizers(max_iter = 5, 
                                          method = 'L-BFGS-B',
-                                         scaling_factor = 1.0e7,
-                                         pgtol = 1.0e-5)
+                                         scaling_factor = 1.0e6,
+                                         pgtol = 1.0e-5,
+                                         ftol = 1.0e-12,
+                                         target_fom = 0.0,
+                                         scale_initial_gradient_to = None)
 
     def test_permittivity_derivatives_in_2D(self):
         print("2D optimization with permittivity derivatives (use_deps = True): ")
@@ -78,8 +81,11 @@ class TestOptimizationParallelPlateWaveguideTE(TestCase):
                            fom = self.fom,
                            geometry = self.geometry,
                            optimizer = self.optimizer,
+                           use_var_fdtd = False,
                            hide_fdtd_cad = True,
-                           use_deps = True)
+                           use_deps = True,
+                           plot_history = False,
+                           store_all_simulations = False)
         fom, params = opt.run()
         self.assertGreaterEqual(fom, 0.99991)
         self.assertAlmostEqual(params[0], self.wg_width / 2.0 * self.optimizer.scaling_factor)
@@ -93,7 +99,9 @@ class TestOptimizationParallelPlateWaveguideTE(TestCase):
                            geometry = self.geometry,
                            optimizer = self.optimizer,
                            hide_fdtd_cad = True,
-                           use_deps = True)
+                           use_deps = True,
+                           plot_history = False,
+                           store_all_simulations = False)
         fom, params = opt.run()
         self.assertGreaterEqual(fom, 0.99991)
         self.assertAlmostEqual(params[0], self.wg_width / 2.0 * self.optimizer.scaling_factor)
@@ -110,7 +118,9 @@ class TestOptimizationParallelPlateWaveguideTE(TestCase):
                            geometry = self.geometry,
                            optimizer = self.optimizer,
                            hide_fdtd_cad = True,
-                           use_deps = False)
+                           use_deps = False,
+                           plot_history = False,
+                           store_all_simulations = False)
         fom, params = opt.run()
         self.assertGreaterEqual(fom, 0.972)
         self.assertAlmostEqual(params[0], (self.wg_width / 2.0 - self.mesh_del) * self.optimizer.scaling_factor)
@@ -127,7 +137,9 @@ class TestOptimizationParallelPlateWaveguideTE(TestCase):
                            geometry = self.geometry,
                            optimizer = self.optimizer,
                            hide_fdtd_cad = True,
-                           use_deps = False)
+                           use_deps = False,
+                           plot_history = False,
+                           store_all_simulations = False)
         fom, params = opt.run()
         self.assertGreaterEqual(fom, 0.972)
         self.assertAlmostEqual(params[0], (self.wg_width / 2.0 - self.mesh_del) * self.optimizer.scaling_factor)

@@ -1,0 +1,61 @@
+current_dir = pwd;
+load("../grating_coupler_2D_2etch_fixed_mesh.fsp");
+cd(current_dir);
+
+###SIM PARAMS
+wg_height=220e-9;
+grating_depth=70e-9;
+#grating_length=15e-6;
+box_depth=2e-6;
+d_mesh=20e-9;
+margin=d_mesh;
+x1 =-8e-6;
+x2 = 19e-6;
+
+## Use "Precise Volume Average" with a very high refinement level
+setnamed("::model::FDTD","mesh refinement","precise volume average");
+setnamed("::model::FDTD","meshing refinement",8);
+setnamed("::model::FDTD","use legacy conformal interface detection",false);
+setnamed("::model::FDTD","meshing tolerance",1.234e-15);
+
+## Aim for high accuracy to eliminate
+setnamed("::model::FDTD","simulation time",2e-12);
+setnamed("::model::FDTD","auto shutoff min",1e-7);
+#setnamed("::model::FDTD","mesh accuracy",3);
+
+## Try to only inject in the band of interested to avoid the bandgap
+setglobalsource("optimize for short pulse",false);
+
+#Optimization fields
+select("opt_fields");
+delete;
+addpower;
+set('name','opt_fields');
+set('monitor type','2D Z-normal');
+set('y min',-margin);
+set('y max',wg_height+margin);
+set('x min',x1-margin);
+set('x max',x2+margin);
+
+select("opt_fields_mesh");
+delete;
+addmesh;
+set('name','opt_fields_mesh');
+#set('y min',wg_height-grating_depth-margin);
+#set('y max',wg_height+margin);
+set('y min',-margin);
+set('y max',wg_height+margin);
+set('x min',getnamed("::model::FDTD",'x min') );
+set('x max',getnamed("::model::FDTD",'x max') );
+set('dx',d_mesh);
+set('dy',d_mesh);
+
+## FOM FIELDS
+select("fom");
+delete;
+addpower;
+set('name','fom');
+set('monitor type','2D X-normal');
+set('y',wg_height/2);
+set('y span',2e-6+wg_height);
+set('x',x1-1e-6);

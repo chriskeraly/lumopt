@@ -1,61 +1,56 @@
+# Copyright chriskeraly
+# Copyright (c) 2019 Lumerical Inc.
+
 switchtolayout;
 selectall;
 delete;
 
 ## SIM PARAMS
-size_x = 3.0e-6;
-size_y = 3.0e-6;
-mesh_x = 20.0e-9;
-mesh_y = 25.0e-9;
-finer_mesh_size_x = 2.5e-6;
-finer_mesh_size_y = 2.5e-6;
-background_index = 1.44;
-mesh_accuracy = 1;
+size_x=3e-6;
+size_y=3e-6;
+mesh_x=20e-9;
+mesh_y=20e-9;
+finer_mesh_size=2.5e-6;
+mesh_accuracy=2;
 
 ## GEOMETRY
-wg_width = 0.5e-6;
-wg_length = 3.0e-6;
-wg_height = 220.0e-9;
-wg_material = '<Object defined dielectric>';
-wg_ref_index = 2.8;
 
 #INPUT WAVEGUIDE
 addrect;
 set('name','input wg');
-set('x span',wg_length);
-set('y span',wg_width);
-set('z span',wg_height);
-set('y',0.0);
+set('x span',3e-6);
+set('y span',0.5e-6);
+set('z span',220e-9);
+set('y',0);
 set('x',-2.5e-6);
-set('index',wg_ref_index);
-set('material',wg_material);
+set('index',2.8);
 
 #OUTPUT WAVEGUIDES
 addrect;
 set('name','output wg top');
-set('x span',wg_length);
-set('y span',wg_width);
-set('z span',wg_height);
+set('x span',3e-6);
+set('y span',0.5e-6);
+set('z span',220e-9);
 set('y',0.35e-6);
 set('x',2.5e-6);
-set('index',wg_ref_index);
-set('material',wg_material);
+set('index',2.8);
+
 addrect;
 set('name','output wg bottom');
-set('x span',wg_length);
-set('y span',wg_width);
-set('z span',wg_height);
+set('x span',3e-6);
+set('y span',0.5e-6);
+set('z span',220e-9);
 set('y',-0.35e-6);
 set('x',2.5e-6);
-set('index',wg_ref_index);
-set('material',wg_material);
+set('index',2.8);
 
 ## SOURCE
 addmode;
 set('direction','Forward');
 set('injection axis','x-axis');
+#set('polarization angle',0);
 set('y',0.0);
-set('y span',finer_mesh_size_y);
+set('y span',size_y);
 set('x',-1.25e-6);
 set('override global source settings',false);
 set('mode selection','fundamental TE mode');
@@ -63,41 +58,38 @@ set('mode selection','fundamental TE mode');
 ## FDTD
 addfdtd;
 set('dimension','2D');
-set('background index',background_index);
+set('background index',1.44);
 set('mesh accuracy',mesh_accuracy);
-set('x min',-size_x/2.0);
-set('x max',size_x/2.0);
-set('y min',-size_y/2.0);
-set('y max',size_y/2.0);
+set('x',0.0);
+set('x span',size_x);
+set('y',0.0);
+set('y span',size_y);
 set('force symmetric y mesh',true);
+set('y min bc','Anti-Symmetric');
+set('pml layers',12);
 
 ## MESH IN OPTIMIZABLE REGION
 addmesh;
-set('directly defined',true);
-set('x',0.0);
-set('x span',finer_mesh_size_x);
-set('y',0.0);
-set('y span',finer_mesh_size_y);
-set('set maximum mesh step',true);
-set('override x mesh',true);
+set('x',0);
+set('x span',finer_mesh_size+2.0*mesh_x);
+set('y',0);
+set('y span',finer_mesh_size);
 set('dx',mesh_x);
-set('override y mesh',true);
 set('dy',mesh_y);
-set('override z mesh',false);
 
 ## OPTIMIZATION FIELDS MONITOR IN OPTIMIZABLE REGION
 addpower;
 set('name','opt_fields');
 set('monitor type','2D Z-normal');
-set('x',0.0);
-set('x span',finer_mesh_size_x);
-set('y',0.0);
-set('y span',finer_mesh_size_y);
+set('x',0);
+set('x span',finer_mesh_size);
+set('y',0);
+set('y span',finer_mesh_size);
 
 ## FOM FIELDS
 addpower;
 set('name','fom');
 set('monitor type','2D X-normal');
-set('x',1.25e-6);
+set('x',finer_mesh_size/2.0);
 set('y',0.0);
-set('y span',finer_mesh_size_y);
+set('y span',size_y);

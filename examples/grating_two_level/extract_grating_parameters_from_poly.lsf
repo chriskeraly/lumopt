@@ -1,0 +1,4 @@
+selectpartial('polygon');
+v=get('vertices');
+vx = v(3:2:end-2,1);
+?dvx=(vx(2:end)-vx(1:end-1))*1e6;

@@ -2,11 +2,11 @@ deleteall;
 clear;
 
 ## FDTD
-mesh_dx = 10.0e-9;
+mesh_dx = 5.0e-9;
 mesh_dy = mesh_dz = mesh_dx;
-fdtd_span_x = 8.0*mesh_dx;
-fdtd_span_y = 4.0*mesh_dy;
-fdtd_span_z = 4.0*mesh_dz;
+fdtd_span_x = 16.0*mesh_dx;
+fdtd_span_y = 8.0*mesh_dy;
+fdtd_span_z = 8.0*mesh_dz;
 background_index = 1.0;
 pml_layers = 12;
 sim_time = 5.0e-12;
@@ -37,7 +37,7 @@ set('y',0.0);
 set('y span',fdtd_span_y);
 set('z',0.0);
 set('z span',fdtd_span_y);
-set('x',-3.0*mesh_dx);
+set('x',-6.0*mesh_dx);
 set('override global source settings',false);
 set('mode selection','fundamental TM mode');
 
@@ -69,7 +69,7 @@ set('z max bc','Metal');
 addpower;
 set('monitor type','2D X-normal');
 set('name','figure_of_merit');
-set('x',2.0*mesh_dx);
+set('x',4.0*mesh_dx);
 set('y',0.0);
 set('y span',fdtd_span_y);
 set('z',0.0);

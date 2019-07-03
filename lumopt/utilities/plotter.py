@@ -28,10 +28,24 @@ class SnapShots(FileMovieWriter):
         self._frame_sink().close()
 
 class Plotter(object):
-    ''' Orchestrates the generation of plots during the optimization. '''
+    '''
+        Orchestrates the generation of plots during the optimization.
 
-    def __init__(self, movie = True):
-        self.fig, self.ax = plt.subplots(nrows=2, ncols=3, figsize=(12, 7))
+        Parameters
+        ----------
+        :param movie:            Indicates if the evolution of parameters should be recorded as a movie
+        :param plot_history      Indicates if we should plot the history of the parameters and gradients. Should
+                                 be set to False for large (e.g. >100) numbers of parameters 
+    '''
+
+    def __init__(self, movie = True, plot_history = True):
+        self.plot_history = plot_history
+
+        if plot_history:
+            self.fig, self.ax = plt.subplots(nrows=2, ncols=3, figsize=(12, 7))
+        else:
+            self.fig, self.ax = plt.subplots(nrows=2, ncols=2, figsize=(12, 10))
+
         self.fig.show()
         self.movie = movie
         if movie:
@@ -39,17 +53,23 @@ class Plotter(object):
             self.writer = SnapShots(fps = 2, metadata = metadata)
 
     def update(self, optimization):
-        optimization.optimizer.plot(fomax = self.ax[0,0], paramsax = self.ax[0,2], gradients_ax = self.ax[1,2])
+        if self.plot_history:
+            optimization.optimizer.plot(fomax=self.ax[0,0], paramsax=self.ax[0,2], gradients_ax=self.ax[1,2])
+        else:
+            optimization.optimizer.plot(fomax=self.ax[0,0], paramsax=None, gradients_ax=None)
+
         if hasattr(optimization, 'optimizations'):
             for i,opt in enumerate(optimization.optimizations):
-                if not opt.geometry.plot(self.ax[1,0]):
-                   opt.gradient_fields.plot_eps(self.ax[1,0])
-                opt.gradient_fields.plot(self.fig, self.ax[1,1], self.ax[0,1])
+                if hasattr(opt, 'gradient_fields'):
+                    if not opt.geometry.plot(self.ax[1,0]):
+                        opt.gradient_fields.plot_eps(self.ax[1,0])
+                    opt.gradient_fields.plot(self.fig, self.ax[1,1], self.ax[0,1])
                 print('Plots updated with optimization {0} iteration {1} results'.format(i, optimization.optimizer.iteration - 1))
         else:
-            if not optimization.geometry.plot(self.ax[1,0]):
-                optimization.gradient_fields.plot_eps(self.ax[1,0])
-            optimization.gradient_fields.plot(self.fig, self.ax[1,1], self.ax[0,1])
+            if hasattr(optimization, 'gradient_fields'):
+                if not optimization.geometry.plot(self.ax[1,0]):
+                    optimization.gradient_fields.plot_eps(self.ax[1,0])
+                optimization.gradient_fields.plot(self.fig, self.ax[1,1], self.ax[0,1])
             print('Plots updated with iteration {} results'.format(optimization.optimizer.iteration - 1))
         plt.tight_layout()
         self.fig.canvas.draw()

@@ -1,0 +1,131 @@
+switchtolayout;
+selectall;
+delete;
+
+## SIM PARAMS
+opt_size_x=3.5e-6;
+opt_size_y=3.5e-6;
+
+
+size_x=opt_size_x+0.6e-6;
+size_y=opt_size_y+1e-6;
+
+
+out_wg_dist = 1.25e-6;
+wg_width = 0.5e-6;
+mode_width = 3*wg_width;
+
+wg_index = 2.8;
+bg_index = 1.44;
+
+dx = 20e-9;
+## GEOMETRY
+
+#INPUT WAVEGUIDE
+addrect;
+set('name','input wg');
+set('x min',-size_x);
+set('x max',-opt_size_x/2 + 1e-7);
+set('y',0);
+set('y span',wg_width);
+set('z',0);
+set('z span',220e-9);
+set('index',wg_index);
+
+## OUTPUT WAVEGUIDES
+addrect;
+set('name','output wg top');
+set('x min',opt_size_x/2 - 1e-7);
+set('x max',size_x);
+set('y',out_wg_dist);
+set('y span',wg_width);
+set('z',0);
+set('z span',220e-9);
+set('index',wg_index);
+
+addrect;
+set('name','output wg bottom');
+set('x min',opt_size_x/2 - 1e-7);
+set('x max',size_x);
+set('y',-out_wg_dist);
+set('y span',wg_width);
+set('z',0);
+set('z span',220e-9);
+set('index',wg_index);
+
+## SOURCE
+addmode;
+set('direction','Forward');
+set('injection axis','x-axis');
+set('x',-size_x/2 + 1e-7);
+set('y',0);
+set('y span',mode_width);
+set('z',0);
+set('z span',1e-6);
+set('center wavelength',1550e-9);
+set('wavelength span',0);
+set('mode selection','fundamental TE mode');
+
+## FDTD
+addfdtd;
+set('dimension','2D');
+set('background index',bg_index);
+set('mesh accuracy',4);
+set('x min',-size_x/2);
+set('x max',size_x/2);
+set('y min',-size_y/2);
+set('y max',size_y/2);
+set('y min bc','anti-symmetric');
+#set('force symmetric y mesh',1);
+set('auto shutoff min',1e-7);
+
+## OPTIMIZATION FIELDS MONITOR IN OPTIMIZABLE REGION
+addpower;
+set('name','opt_fields');
+set('monitor type','2D Z-normal');
+set('x',0);
+set('x span',opt_size_x);
+set('y min',0);
+set('y max',opt_size_y/2);
+
+## FOM FIELDS
+addpower;
+set('name','fom');
+set('monitor type','2D X-normal');
+set('x',size_x/2 - 1e-7);
+set('y',out_wg_dist);
+set('y span',mode_width);
+
+addmesh;
+set('name','fom_mesh');
+set('override x mesh',true);
+set('dx',dx);
+set('override y mesh',false);
+set('override z mesh',false);
+set('x',size_x/2 - 1e-7);
+set('x span',2*dx);
+set('y',out_wg_dist);
+set('y span',mode_width);
+
+## For visualization later
+addindex;
+set('name','global_index');
+set('x min',-size_x/2);
+set('x max',size_x/2);
+set('y min',-size_y/2);
+set('y max',size_y/2);
+
+## Initial guess
+addstructuregroup;
+set("name","initial_guess");
+addwaveguide;
+set("base width",500e-9);
+set("base height",500e-9);
+set("base angle",90);
+poles = [-opt_size_x/2,0;
+          0,0;
+          0,out_wg_dist;
+          opt_size_x/2,out_wg_dist];
+set("poles",poles);
+set("index",wg_index);
+addtogroup("initial_guess");

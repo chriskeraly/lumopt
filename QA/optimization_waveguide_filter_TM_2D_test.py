@@ -19,8 +19,9 @@ from lumopt.optimization import Optimization
 class TestOptimizationWaveguideFilterTM2D(TestCase):
     """ 
         Unit test for the Optimization class. It performs a sanity check that the optimizer converges using a
-        simple Bragg filter. The size of the two gaps must be optimized to maximize transmission. The optimization
-        is done using both single frequency and broadband simulations.
+        simple Bragg filter. The width of the two gaps must be optimized to maximize transmission. The optimization
+        is done using both single frequency and broadband simulations as well as the two method for computing the
+        FOM gradient.
     """
 
     file_dir = os.path.abspath(os.path.dirname(__file__))
@@ -32,8 +33,9 @@ class TestOptimizationWaveguideFilterTM2D(TestCase):
         self.wavelengths = Wavelengths(start = 1300e-9,
                                        stop = 1800e-9,
                                        points = 41)
+                                       
         # Polygons to form the two gaps
-        self.mesh_del = 20.0e-9; # must be kept in sych with self.base_script
+        self.mesh_del = 20.0e-9 # must be kept in sych with self.base_script
         initial_param = 10.0 * np.array([self.mesh_del])
         def rectangle(param = initial_param, offset = 0.0):
             assert param.size == 1, "rectangle grows along a single dimension."
@@ -63,38 +65,84 @@ class TestOptimizationWaveguideFilterTM2D(TestCase):
         self.optimizer = ScipyOptimizers(max_iter = 10, 
                                          method = 'L-BFGS-B',
                                          scaling_factor = 1.0e7,
-                                         pgtol = 5.6e-3)
+                                         pgtol = 1.1e-2,
+                                         ftol = 1.0e-12,
+                                         target_fom = 0.0,
+                                         scale_initial_gradient_to = None)
 
-    def test_broadband(self):
-        print("Broadband optimization results:")
+    def test_broadband_optimization(self):
+        print("Broadband optimization results (use_deps = True):")
         opt = Optimization(base_script = self.base_script, 
                            wavelengths = self.wavelengths,
                            fom = self.fom,
                            geometry = self.geometry,
                            optimizer = self.optimizer,
+                           use_var_fdtd = False,
                            hide_fdtd_cad = True,
-                           use_deps = True)
+                           use_deps = True,
+                           plot_history = False,
+                           store_all_simulations = False)
         fom, params = opt.run()
-        self.assertAlmostEqual(params[0], 2.050400e-7 * self.optimizer.scaling_factor, 5)
-        self.assertGreaterEqual(fom, 0.4618)
+        self.assertAlmostEqual(params[0], 2.050375e-7 * self.optimizer.scaling_factor[0], 4)
+        self.assertGreaterEqual(fom, 0.461815)
 
-    def test_single_frequency(self):
-        print("Single frequency optimization results:")
+    def test_broadband_legacy_optimization(self):
+        print("Broadband optimization results (use_deps = False):")
+        self.optimizer.scaling_factor = np.array(2.0e7)
+        opt = Optimization(base_script = self.base_script, 
+                           wavelengths = self.wavelengths,
+                           fom = self.fom,
+                           geometry = self.geometry,
+                           optimizer = self.optimizer,
+                           use_var_fdtd = False,
+                           hide_fdtd_cad = True,
+                           use_deps = False,
+                           plot_history = False,
+                           store_all_simulations = False)
+        fom, params = opt.run()
+        self.assertAlmostEqual(params[0], 2.05061e-7 * self.optimizer.scaling_factor, 4)
+        self.assertGreaterEqual(fom, 0.461815)
+
+    def test_single_wavelength_optimization(self):
+        print("Single wavelength optimization results (use_deps = True):")
         self.fom.target_T_fwd = lambda wl: np.ones(wl.size)
         self.fom.multi_freq_src = False
         self.wavelengths = 1550.0e-9
-        self.optimizer.scaling_factor = 2.0e7
+        self.optimizer.scaling_factor = np.array(2.0e7)
         self.optimizer.pgtol = 3.1e-2
         opt = Optimization(base_script = self.base_script, 
                            wavelengths = self.wavelengths,
                            fom = self.fom,
                            geometry = self.geometry,
                            optimizer = self.optimizer,
+                           use_var_fdtd = False,
                            hide_fdtd_cad = True,
-                           use_deps = True)
+                           use_deps = True,
+                           plot_history = False,
+                           store_all_simulations = False)
         fom, params = opt.run()
-        self.assertAlmostEqual(params[0], 2.058006e-7 * self.optimizer.scaling_factor, 5)
+        self.assertAlmostEqual(params[0], 2.0582452415e-7 * self.optimizer.scaling_factor, 4)
         self.assertGreaterEqual(fom, 0.9192)
+
+    def test_single_wavelength_legacy_optimization(self):
+        print("Single wavelength optimization results (use_deps = False):")
+        self.fom.target_T_fwd = lambda wl: np.ones(wl.size)
+        self.fom.multi_freq_src = False
+        self.wavelengths = 1550.0e-9
+        self.optimizer.scaling_factor = np.array(2.0e7)
+        self.optimizer.pgtol = 3.1e-2
+        opt = Optimization(base_script = self.base_script, 
+                           wavelengths = self.wavelengths,
+                           fom = self.fom,
+                           geometry = self.geometry,
+                           optimizer = self.optimizer,
+                           use_var_fdtd = False,
+                           hide_fdtd_cad = True,
+                           use_deps = False,plot_history = False,
+                           store_all_simulations = False)
+        fom, params = opt.run()
+        self.assertAlmostEqual(params[0], 2.05609116e-7 * self.optimizer.scaling_factor, 4)
+        self.assertGreaterEqual(fom, 0.91905)
 
 if __name__ == "__main__":
     run([__file__])

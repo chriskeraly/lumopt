@@ -5,6 +5,7 @@ import os
 from inspect import signature
 
 from lumapi import FDTD
+from lumapi import MODE
 from lumopt.utilities.load_lumerical_scripts import load_from_lsf
 
 class BaseScript(object):
@@ -28,7 +29,7 @@ class BaseScript(object):
             if len(params) > 1:
                 raise UserWarning('function to create base simulation must take a single argument (handle to FDTD CAD).')
         elif isinstance(script_obj, str):
-            if '.fsp' in script_obj and os.path.isfile(script_obj):
+            if '.fsp' in script_obj and os.path.isfile(script_obj) or '.lms' in script_obj and os.path.isfile(script_obj):
                 self.project_file = os.path.abspath(script_obj)
             elif '.lsf' in script_obj and os.path.isfile(script_obj):
                 self.script_str = load_from_lsf(os.path.abspath(script_obj))
@@ -41,7 +42,7 @@ class BaseScript(object):
         return self.eval(cad_handle)
 
     def eval(self, cad_handle):
-        if not isinstance(cad_handle, FDTD):
+        if not isinstance(cad_handle, FDTD) and not isinstance(cad_handle, MODE):
             raise UserWarning('input must be handle returned by lumapi.FDTD.')
         if hasattr(self, 'callable_obj'):
             return self.callable_obj(cad_handle)

@@ -9,7 +9,7 @@ size_z=1.2e-6;
 mesh_x=30e-9;
 mesh_y=30e-9;
 mesh_z=30e-9;
-finer_mesh_size=4e-6;
+finer_mesh_size=4.3e-6;
 finer_mesh_size_z=0.6e-6;
 
 ##GEOMETRY
@@ -58,15 +58,14 @@ set('x',0);
 set('z',0);
 set('index',2.8);
 
-
 #SOURCE
 addmode;
 set('direction','Forward');
 set('injection axis','x-axis');
 #set('polarization angle',0);
 set('y',0);
-set('y span',2e-6);
-set('x',-2.25e-6);
+set('y span',size_y);
+set('x',-finer_mesh_size/2.0+mesh_x);
 set('z',0);
 set('z span',1e-6);
 set('override global source settings',false);
@@ -76,7 +75,7 @@ set('mode selection','fundamental TE mode');
 addfdtd;
 set('dimension','2D');
 set('background index',1.44);
-set('mesh accuracy',4);
+set('mesh accuracy',2);
 set('x min',-size_x/2);
 set('x max',size_x/2);
 set('y min',-size_y/2);
@@ -86,7 +85,8 @@ set('z max',size_z/2);
 set('force symmetric y mesh',1);
 #set('force symmetric z mesh',1);
 #set('z min bc','Symmetric');
-#set('y min bc','Anti-Symmetric');
+set('y min bc','Anti-Symmetric');
+set('pml layers',12);
 
 addmesh;
 set('x',0);
@@ -112,12 +112,11 @@ set('z max',0.4e-6);
 
 
 #FOM FIELDS
-
 addpower;
 set('name','fom');
 set('monitor type','2D X-normal');
-set('x',2.25e-6);
-set('y min',-1e-6);
-set('y max',1e-6);
+set('x',finer_mesh_size/2.0-mesh_x);
+set('y',0);
+set('y span',size_y);
 set('z min',-0.5e-6);
 set('z max',0.5e-6);

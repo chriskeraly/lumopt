@@ -7,7 +7,6 @@ import os
 import numpy as np
 import scipy as sp
 
-from lumopt.utilities.load_lumerical_scripts import load_from_lsf
 from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.geometries.polygon import FunctionDefinedPolygon
 from lumopt.figures_of_merit.modematch import ModeMatch
@@ -19,13 +18,13 @@ wavelengths = Wavelengths(start = 1550e-9, stop = 1550e-9, points = 1)
 
 ######## DEFINE BASE SIMULATION ########
 # Use the same script for both simulations, but it's just to keep the example simple. You could use two.
-script_1 = load_from_lsf(os.path.join(os.path.dirname(__file__), 'splitter_base_TE_modematch.lsf'))
-script_2 = load_from_lsf(os.path.join(os.path.dirname(__file__), 'splitter_base_TE_modematch_25nmoffset.lsf'))
+script_1 = os.path.join(os.path.dirname(__file__), 'splitter_base_TE_modematch.lsf')
+script_2 = os.path.join(os.path.dirname(__file__), 'splitter_base_TE_modematch_25nmoffset.lsf')
 
 ######## DEFINE OPTIMIZABLE GEOMETRY ########
 ## Here the two splitters just have a 25nm offset from each other, so that the result is robust
 initial_points_x = np.linspace(-1.0e-6, 1.0e-6, 10)
-initial_points_y = 0.25e-6 + (0.6e-6 - 0.25e-6) * np.power(np.sin( np.pi / 2.0 * (initial_points_x - initial_points_x.min()) / (initial_points_x.max() - initial_points_x.min()) ), 2)
+initial_points_y = np.linspace(0.25e-6, 0.6e-6, initial_points_x.size)
 def taper_splitter_1(params = initial_points_y):
     points_x = np.concatenate(([initial_points_x.min() - 0.01e-6], initial_points_x, [initial_points_x.max() + 0.01e-6]))
     points_y = np.concatenate(([initial_points_y.min()], params, [initial_points_y.max()]))

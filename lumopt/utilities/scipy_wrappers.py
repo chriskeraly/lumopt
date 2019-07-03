@@ -4,47 +4,6 @@
 from scipy.interpolate import RegularGridInterpolator
 import numpy as np
 
-from scipy.integrate import simps
-import numpy as np
-
-def trapz1D(vals,x):
-    '''This is trapz but that is ok with one dimensional values'''
-    if len(x)==1:
-        try:
-            return vals[0]
-        except:
-            return vals
-    else:
-        return np.trapz(vals,x)
-
-def trapz2D(vals,x,y):
-    '''2D trapz methods, which is OK with one dimensional values'''
-
-    temp=[]
-    for i in range(len(y)):
-        temp.append(trapz1D(vals[:,i],x))
-
-    return trapz1D(temp,y)
-
-def trapz3D( vals,x, y,z,):
-    '''3D trapz methods, which is OK with one dimensional values'''
-
-    def process_input(input):
-        if type(input) is float:
-            input = np.array([input])
-        else:
-            input = input.squeeze()
-        if input.shape == ():
-            input = np.array([input])
-        return input
-
-    x, y, z = map(process_input, [x, y, z])
-
-    temp = []
-    for i in range(len(z)):
-        temp.append(trapz2D(vals[:,:,i],x,y))
-
-    return trapz1D(temp, z)
 
 def wrapped_GridInterpolator(points, values, method='linear', bounds_error=True, fill_value=float('nan')):
     '''This is a wrapper around Scipy's RegularGridInterpolator so that it can deal with entries of 1 dimension

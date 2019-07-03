@@ -16,7 +16,7 @@ if not python_api_path:
     current_platform = platform.system()
     default_api_path = ''
     if current_platform == 'Windows':
-        default_api_path = '/Program Files/Lumerical/FDTD/api/python'
+        default_api_path = '/Program Files/Lumerical/2019b/api/python'
     elif current_platform == 'Darwin':
         default_api_path = '/Applications/Lumerical/FDTD/FDTD.app/Contents/MacOS/'
     elif current_platform == 'Linux':

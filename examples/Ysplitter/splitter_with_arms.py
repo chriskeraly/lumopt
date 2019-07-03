@@ -9,7 +9,6 @@ import scipy as sp
 from lumopt import CONFIG
 
 # Optimization specific imports
-from lumopt.utilities.load_lumerical_scripts import load_from_lsf
 from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.geometries.polygon import FunctionDefinedPolygon
 from lumopt.figures_of_merit.modematch import ModeMatch
@@ -17,7 +16,7 @@ from lumopt.optimizers.generic_optimizers import ScipyOptimizers
 from lumopt.optimization import Optimization
 
 ######## DEFINE BASE SIMULATION ########
-base_script = load_from_lsf(os.path.join(os.path.dirname(__file__), 'splitter_with_arms.lsf'))
+base_script = os.path.join(os.path.dirname(__file__), 'splitter_with_arms.lsf')
 
 ######## DEFINE SPECTRAL RANGE #########
 wavelengths = Wavelengths(start = 1550e-9, stop = 1550e-9, points = 1)

@@ -59,7 +59,7 @@ class ModeMatchWavelengthIntegrationTest(TestCase):
         wavelengths = np.linspace(1300e-9, 1800e-9, wl_points)
         target_T_fwd = lambda wl: np.linspace(0.0, 1.0, wl.size)
         fom_grad = ModeMatch.fom_gradient_wavelength_integral_impl(T_fwd_vs_wavelength = 0.25 * np.ones(wl_points),
-                                                                   T_fwd_partial_derivs_vs_wl = np.ones((wl_points,1)),
+                                                                   T_fwd_partial_derivs_vs_wl = np.ones((1,wl_points)),
                                                                    target_T_fwd_vs_wavelength = target_T_fwd(wavelengths),
                                                                    wl = wavelengths,
                                                                    norm_p = 1)
@@ -71,7 +71,7 @@ class ModeMatchWavelengthIntegrationTest(TestCase):
         wavelengths = np.linspace(1.0e-9, 1.0e-8, wl_points)
         target_T_fwd = lambda wl: np.exp(-1.0 * (wl - wl.min()) / (wl.max() - wl.min()))
         fom_grad = ModeMatch.fom_gradient_wavelength_integral_impl(T_fwd_vs_wavelength = 0.5 * np.ones(wl_points),
-                                                                   T_fwd_partial_derivs_vs_wl = np.ones((wl_points,1)),
+                                                                   T_fwd_partial_derivs_vs_wl = np.ones((1,wl_points)),
                                                                    target_T_fwd_vs_wavelength = target_T_fwd(wavelengths),
                                                                    wl = wavelengths,
                                                                    norm_p = 2)

@@ -49,6 +49,8 @@ class Polygon(Geometry):
             edges.append(Edge(self.points[i-1],self.points[i],eps_in=self.eps_in,eps_out=self.eps_out,z=self.z,depth=self.depth))
         self.edges=edges
 
+    def use_interpolation(self):
+        return False
 
     def calculate_gradients(self, gradient_fields):
         ''' We calculate gradients with respect to moving each point in x or y direction '''
@@ -76,7 +78,7 @@ class Polygon(Geometry):
         self.gradients.append(gradients)
         return self.gradients[-1]
 
-    def update_geometry(self,points_linear):
+    def update_geometry(self, points_linear, sim = None):
         '''Sets the points. Must be fed a linear array of points, because during the optimization the point coordinates are not by pair'''
         self.points =np.reshape(points_linear,(-1,2))
 
@@ -84,27 +86,23 @@ class Polygon(Geometry):
         '''returns the points coordinates linearly '''
         return np.reshape(self.points,(-1)).copy()
 
-    def add_geo(self, sim, params = None):
+    def add_geo(self, sim, params, only_update):
         ''' Adds the geometry to a Lumerical simulation'''
-
+        sim.fdtd.switchtolayout()
         if params is None:
             points = self.points
         else:
             points = np.reshape(params, (-1, 2))
-        sim.fdtd.addpoly()
         poly_name = 'polygon_{0}'.format(self.hash)
-        sim.fdtd.set('name', poly_name)
+        if not only_update:
+            sim.fdtd.addpoly()
+            sim.fdtd.set('name', poly_name)
         sim.fdtd.set('x', 0.0)
         sim.fdtd.set('y', 0.0)
         sim.fdtd.set('z', self.z)
         sim.fdtd.set('z span', self.depth)
         sim.fdtd.putv('vertices', points)
         self.eps_in.set_script(sim, poly_name)
-
-    def update_geo_in_sim(self, sim, params):
-        points = np.reshape(params, (-1, 2))
-        sim.fdtd.select('polygon_{}'.format(self.hash))
-        sim.fdtd.set('vertices', points)
 
     def plot(self,ax):
         points=self.points.copy()
@@ -142,23 +140,25 @@ class FunctionDefinedPolygon(Polygon):
 
     def __init__(self, func, initial_params, bounds, z, depth, eps_out, eps_in, edge_precision = 5, dx = 1.0e-10):
         self.func = func
-        self.current_params = initial_params
-        points = func(initial_params)
+        self.current_params = np.array(initial_params).flatten()
+        points = func(self.current_params)
         super(FunctionDefinedPolygon, self).__init__(points, z, depth, eps_out, eps_in, edge_precision)
-        self.bounds = bounds
+        self.bounds = np.array(bounds)
         self.dx = float(dx)
 
-        if len(self.bounds) != self.current_params.size:
+        if self.bounds.shape[0] != self.current_params.size:
             raise UserWarning("there must be one bound for each parameter.")
+        elif self.bounds.shape[1] != 2:
+            raise UserWarning("there should be a min and max bound for each parameter.")
         for bound in self.bounds:
             if bound[1] - bound[0] <= 0.0:
                 raise UserWarning("bound ranges must be positive.")
         if self.dx <= 0.0:
             raise UserWarning("step size must be positive.")
 
-        self.params_hist = list(initial_params)
+        self.params_hist = list(self.current_params)
 
-    def update_geometry(self,params):
+    def update_geometry(self, params, sim = None):
         self.points=self.func(params)
         self.current_params=params
         self.params_hist.append(params)
@@ -197,7 +197,5 @@ class FunctionDefinedPolygon(Polygon):
             points = self.points
         else:
             points = self.func(params)
+        sim.fdtd.switchtolayout()
         self.add_poly_script(sim, points, only_update)
-
-    def update_geo_in_sim(self, sim, params):
-        self.add_geo(sim, params, only_update = True)

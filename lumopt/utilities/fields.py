@@ -4,7 +4,6 @@
 import numpy as np
 import scipy as sp
 from lumopt.utilities.scipy_wrappers import wrapped_GridInterpolator
-from lumopt.utilities.scipy_wrappers import trapz3D
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
@@ -47,11 +46,42 @@ class Fields(object):
             self.getHfield=self.make_field_interpolation_object(self.H)
         self.evals=0
 
+    def scale(self, dimension, factors):
+        """
+            Scales the E, D and H field arrays along the specified dimension using the provided weighting factors.
+
+            Parameters
+            ----------
+            :param dimension: 0 (x-axis), 1 (y-axis), 2 (z-axis), (3) frequency and (4) vector component.
+            :param factors:   list or vector of weighting factors of the same size as the target field dimension.
+        """
+
+        if hasattr(self.E, 'dtype'):
+            if self.E.shape[dimension] == len(factors):
+                self.E = np.concatenate([np.take(self.E, [index], axis = dimension) * factors[index] for index in range(self.E.shape[dimension])], axis = dimension)
+                self.getfield = self.make_field_interpolation_object(self.E)
+            else:
+                raise UserWarning('number of factors must match the target E-field dimension.')
+        if hasattr(self.D, 'dtype'):
+            if self.D.shape[dimension] == len(factors):
+                self.D = np.concatenate([np.take(self.D, [index], axis = dimension) * factors[index] for index in range(self.D.shape[dimension])], axis = dimension)
+                self.getDfield = self.make_field_interpolation_object(self.D)
+            else:
+                raise UserWarning('number of factors must match the target D-field dimension.')
+        if hasattr(self.H, 'dtype'):
+            if self.H.shape[dimension] == len(factors):
+                self.H = np.concatenate([np.take(self.H, [index], axis = dimension) * factors[index] for index in range(self.H.shape[dimension])], axis = dimension)
+                self.getHfield = self.make_field_interpolation_object(self.H)
+            else:
+                raise UserWarning('number of factors must match the target H-field dimension.')
+
     def make_field_interpolation_object(self,F):
 
-        Fx_interpolator=wrapped_GridInterpolator((self.x,self.y,self.z,self.wl),F[:,:,:,:,0],method='linear')
-        Fy_interpolator=wrapped_GridInterpolator((self.x,self.y,self.z,self.wl),F[:,:,:,:,1],method='linear')
-        Fz_interpolator=wrapped_GridInterpolator((self.x,self.y,self.z,self.wl),F[:,:,:,:,2],method='linear')
+        wl = self.wl[0] if ((F.shape[3]==1) and (len(self.wl)>1)) else self.wl
+
+        Fx_interpolator = wrapped_GridInterpolator((self.x,self.y,self.z,wl), F[:,:,:,:,0], method='linear', bounds_error = False)
+        Fy_interpolator = wrapped_GridInterpolator((self.x,self.y,self.z,wl), F[:,:,:,:,1], method='linear', bounds_error = False)
+        Fz_interpolator = wrapped_GridInterpolator((self.x,self.y,self.z,wl), F[:,:,:,:,2], method='linear', bounds_error = False)
 
         def field_interpolator(x,y,z,wl):
             Fx=Fx_interpolator((x,y,z,wl))
@@ -166,32 +196,24 @@ class FieldsNoInterp(Fields):
         self.evals = 0
 
     def make_field_interpolation_object_nointerp(self,F):
+
         if( (F.shape[3]==1) and (len(self.wl) > 1) ):
             Fx_interpolator = wrapped_GridInterpolator((self.x + self.deltas[0], self.y, self.z, self.wl[0]), np.take(F, indices = [0], axis = 4), method = 'linear', bounds_error = False)
             Fy_interpolator = wrapped_GridInterpolator((self.x, self.y + self.deltas[1], self.z, self.wl[0]), np.take(F, indices = [1], axis = 4), method = 'linear', bounds_error = False)
             Fz_interpolator = wrapped_GridInterpolator((self.x, self.y, self.z + self.deltas[2], self.wl[0]), np.take(F, indices = [2], axis = 4), method = 'linear', bounds_error = False)
-
-            def field_interpolator(x, y, z, wl):
-                Fx = Fx_interpolator((x, y, z, wl))
-                Fy = Fy_interpolator((x, y, z, wl))
-                Fz = Fz_interpolator((x, y, z, wl))
-
-                return np.array((Fx, Fy, Fz)).squeeze()
-
-            return field_interpolator
         else:
             Fx_interpolator = wrapped_GridInterpolator((self.x + self.deltas[0], self.y, self.z, self.wl), np.take(F, indices = [0], axis = 4), method = 'linear', bounds_error = False)
             Fy_interpolator = wrapped_GridInterpolator((self.x, self.y + self.deltas[1], self.z, self.wl), np.take(F, indices = [1], axis = 4), method = 'linear', bounds_error = False)
             Fz_interpolator = wrapped_GridInterpolator((self.x, self.y, self.z + self.deltas[2], self.wl), np.take(F, indices = [2], axis = 4), method = 'linear', bounds_error = False)
 
-            def field_interpolator(x, y, z, wl):
-                Fx = Fx_interpolator((x, y, z, wl))
-                Fy = Fy_interpolator((x, y, z, wl))
-                Fz = Fz_interpolator((x, y, z, wl))
+        def field_interpolator(x, y, z, wl):
+            Fx = Fx_interpolator((x, y, z, wl))
+            Fy = Fy_interpolator((x, y, z, wl))
+            Fz = Fz_interpolator((x, y, z, wl))
 
-                return np.array((Fx, Fy, Fz)).squeeze()
+            return np.array((Fx, Fy, Fz)).squeeze()
 
-            return field_interpolator
+        return field_interpolator
 
     def plot(self,ax,title,cmap):
         ax.clear()
