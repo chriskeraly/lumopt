@@ -67,7 +67,8 @@ class Geometry(object):
         if self.operation=='mul':
             return params1
         if self.operation=='add':
-            return params1+np.array(self.geometries[1].get_current_params())
+            return np.concatenate(( params1,
+                                    np.array(self.geometries[1].get_current_params()) ))
 
     def plot(self,*args):
         return False
