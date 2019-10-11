@@ -1,0 +1,84 @@
+switchtolayout;
+selectall;
+delete;
+
+## SIM PARAMS
+opt_size_x=500e-9;
+opt_size_y=500e-9;
+opt_size_z=0.2e-6;
+
+size_x=3e-6;
+size_y=3e-6;
+size_z=3e-6;
+
+bg_index = 1;
+
+dx = 20e-9; dy=20e-9; dz=20e-9;
+
+fom_z=-200e-9;
+
+## SOURCE
+addtfsf;
+set('direction','Backward');
+set('injection axis','z-axis');
+set('x',0);set('x span',opt_size_x+500e-9);
+set('y',0);set('y span',opt_size_y+500e-9);
+set('z',0);set('z span',opt_size_z+500e-9);
+set('z span',1e-6);
+set('center wavelength',1550e-9);
+set('wavelength span',0);
+
+## FDTD
+addfdtd;
+set('dimension','3D');
+set('background index',bg_index);
+set('mesh accuracy',3); #< To increase this, we also need to refine the optimization mesh below 20nm
+set('x min',-size_x/2);
+set('x max',size_x/2);
+set('y min',-size_y/2);
+set('y max',size_y/2);
+set('z min',-size_z/2);
+set('z max',size_z/2);
+set('x min bc','Anti-Symmetric');
+set('y min bc','Symmetric');
+set('auto shutoff min',1e-7);
+
+## OPTIMIZATION FIELDS MONITOR IN OPTIMIZABLE REGION
+addpower;
+set('name','opt_fields');
+set('monitor type','3D');
+set('x',opt_size_x/4);
+set('x span',opt_size_x/2);
+set('y',opt_size_y/4);
+set('y span',opt_size_y/2);
+set('z',0);
+set('z span',opt_size_z);
+
+addmesh;
+set('name','opt_mesh');
+set('x',opt_size_x/4);
+set('x span',opt_size_x/2);
+set('y',opt_size_y/4);
+set('y span',opt_size_y/2);
+set('z span',opt_size_z);
+set('dx',dx);set('dy',dy);set('dz',dz);
+
+## FOM
+addpower;
+set('name','fom');
+set('monitor type','Point');
+set('x',0);
+set('y',0);
+set('z',fom_z);
+
+## For visualization later
+addindex;
+set('name','global_index');
+set('monitor type','3D');
+set('x min',-size_x/2);
+set('x max',size_x/2);
+set('y min',-size_y/2);
+set('y max',size_y/2);
+set('z min',-size_z/2);
+set('z max',size_z/2);
+set('enabled',false);
