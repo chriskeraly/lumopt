@@ -53,7 +53,7 @@ class Optimizer(object):
             self.fom_scaling_factor = 1
 
     def define_callables(self, callable_fom, callable_jac):
-        """ This makes the function that is called by optimzation methods."""
+        """ This makes the function that is called by optimization methods."""
 
         def callable_fom_local(params):
             fom = callable_fom(params / self.scaling_factor)
