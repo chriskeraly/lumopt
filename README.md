@@ -18,7 +18,7 @@ Make sure you have Python 3 and the latest version of Lumerical installed (it wo
 ```bash
 cd your/install/folder/
 git clone https://github.com/chriskeraly/LumOpt.git
-python setup.py develop
+python -m pip install --editable .
 ```
 
 I would strongly recommend using jupyter notebooks to run optimizations.
